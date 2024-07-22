@@ -8,8 +8,11 @@ import {
 } from "@/firebase/auth.js";
 import { useRouter } from "next/navigation";
 import { firebaseConfig } from "@/firebase/config";
+import { Anton } from "next/font/google";
 
-function useUserSession(initialUser) {
+const anton = Anton({ weight: '400', subsets: ['latin'] });
+
+export function useUserSession(initialUser) {
 	const [user, setUser] = useState(initialUser);
 	const router = useRouter();
 
@@ -47,52 +50,76 @@ function useUserSession(initialUser) {
 	return user;
 }
 
-export default function Header({initialUser}) {
-
-	const user = useUserSession(initialUser) ;
+export default function Header({currentUser}) {
+  const user = useUserSession(currentUser) ;
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const router = useRouter();
 
 	const handleSignOut = event => {
 		event.preventDefault();
 		signOut();
+		router.push("/")
 	};
 
 	const handleSignIn = event => {
 		event.preventDefault();
 		signInWithGoogle();
+		router.push("/onboarding")
 	};
 
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      setScriptLoaded(true);
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (scriptLoaded) {
+      window.google.accounts.id.initialize({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          console.log(response)
+        }
+      });
+      window.google.accounts.id.prompt()
+    }
+  }, [scriptLoaded])
+
+
 	return (
-		<header>
-			<Link href="/" className="logo">
-				<img src="/icon.png" alt="Project Stargate" width={30} />
-			</Link>
+		<>
 			{user ? (
-				<>
-					<div className="profile">
-						<p>
-							<img className="profileImage" src={user.photoURL || "/favicon.ico"} alt={user.email} />
-							{user.displayName}
-						</p>
-
-						<div className="menu">
-							...
-							<ul>
-								<li>{user.displayName}</li>
-
-								<li>
-									<a href="#" onClick={handleSignOut}>
-										Sign Out
-									</a>
-								</li>
-							</ul>
-						</div>
-					</div>
-				</>
+				<header className="w-screen flex items-center">
+				<Link href="/" className="flex flex-grow flex-inline items-center justify-start pr-5 pl-5">
+				<div className={`text-[35px] ${anton.className}`}>PROJECT</div>
+				<img src="/icon.png" alt="Project Stargate" className="w-[75px]" />
+				<div className={`text-[35px] ${anton.className}`}>STARGATE</div>
+            	</Link>
+				<div className="flex flex-grow justify-end pr-10 pl-5">
+					<p className="p-3 mr-5 font-bold">{user.displayName}</p>
+					<Link className="p-3 rounded-[15px] hover:font-bold" style={{ backgroundColor: "cornsilk", color: "black" }} href="/" onClick={handleSignOut}>
+						Sign Out
+					</Link>
+				</div>
+				</header>
 			) : (
-				<div className="profile"><a href="#" onClick={handleSignIn}>
+				<header className="w-full flex items-center">
+				<div className="w-full flex justify-end pr-5 pl-5 mt-3">
+					<Link href="/" onClick={handleSignIn} className="p-3 rounded-[15px] hover:font-bold" style={{ backgroundColor: "cornsilk", color: "black" }}>
 					Sign In with Google
-				</a></div>
+					</Link>
+				</div>
+				</header>
 			)}
-		</header>
+		</>
 	);
 }

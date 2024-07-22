@@ -1,19 +1,23 @@
 "use client";
 import { useState, useEffect, useRef } from "react"
 import io from 'socket.io-client';
+import { useUserSession } from "@/components/Header";
 
-export default function Onboarding() {
+export default function Onboarding({ currentUser }) {
+    const user = useUserSession(currentUser)
     const [messages, setMessages] = useState([])
     const socketRef = useRef(null);
 
+    console.log(user)
+
     const submitMessage = (event) => {
         if (event.key === 'Enter') {
-        setMessages([...messages, {user: 'Kurtis', text: event.target.value}])
+        setMessages([...messages, {"user": user?.displayName, "text": event.target.value}])
             event.target.value = ''
         }
         console.log(messages)
         if (socketRef.current) {
-            socketRef.current.emit('queryGemini', JSON.stringify(messages)); 
+            socketRef.current.emit('queryGemini', messages); 
         }
     }
 
@@ -24,7 +28,7 @@ export default function Onboarding() {
 
             socketRef.current.on('connect', () => {
                 console.log('Connected to server');
-                socketRef.current.emit('queryGemini', JSON.stringify(messages));
+                socketRef.current.emit('queryGemini', messages);
             });
 
             socketRef.current.on('connect_error', (error) => {

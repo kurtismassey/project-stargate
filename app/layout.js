@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { getAuthenticatedAppForUser } from "@/firebase/serverApp";
 import Header from "@/components/Header";
+import { cloneElement } from "react";
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -19,8 +20,8 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`w-screen max-h-screen ${inter.className}`}>
-      <Header initialUser={currentUser?.toJSON()} />
-      {children}
+      <Header currentUser={currentUser?.toJSON()} />
+      {cloneElement(children, { user: currentUser?.toJSON() })}
       </body>
     </html>
   );

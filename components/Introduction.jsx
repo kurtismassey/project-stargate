@@ -54,9 +54,7 @@ export default function Introduction() {
                     gsap.to(titleRef.current, { opacity: 0, duration: 0.3 });
                     gsap.to([projectRef.current, stargateRef.current], { opacity: 1, duration: 0.3 });
                     gsap.to(projectRef.current, { x: -105, duration: 0.15, ease: "expo.out" });
-                    gsap.to(stargateRef.current, { x: 70, duration: 0.15, ease: "expo.out" });
-                    
-                    setTimeout(() => router.push('/onboarding'), 1000); 
+                    gsap.to(stargateRef.current, { x: 70, duration: 0.15, ease: "expo.out" });                    
                 }
             });
         };
