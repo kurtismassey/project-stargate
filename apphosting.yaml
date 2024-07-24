@@ -1,0 +1,17 @@
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyAZmPN5mfRx6hAf9JnqRsTtteXob0-2GFg
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: project-stargate-web.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: project-stargate-web
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: project-stargate-web.appspot.com
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: 646512050048
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:646512050048:web:f83be9c94d256ce394cb65
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: G-KY5DM20JC3
+  - variable: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    value: 646512050048-4c0uredr4uq4e9i4hfee76n3rv8e1brc.apps.googleusercontent.com
