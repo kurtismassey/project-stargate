@@ -10,8 +10,8 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged((authUser) => {
       setUser(authUser)
+      router.refresh()
       setLoading(false)
     })
   
@@ -39,14 +40,19 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     onAuthStateChanged((authUser) => {
-      if (!authUser && pathname !== "/") {
+      router.refresh()
+      if (router.isReady) {
+        if (!authUser && pathname !== "/") {
+          router.push("/")
+        }
+      } else if (!authUser && !router.isReady && pathname !== "/") {
         window.location.replace("/")
       }
     })
-  }, [user])
+  }, [user, router.isReady])
 
   return (
-    <AuthContext.Provider value={{ user }}>
+    <AuthContext.Provider value={{ user, setLoading }}>
       {loading ? (<Loading/>) : children}
     </AuthContext.Provider>
   );

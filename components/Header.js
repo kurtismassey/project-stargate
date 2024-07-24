@@ -75,6 +75,7 @@ export default function Header() {
               <p className="p-3 mr-5 font-bold">{user?.displayName || ""}</p>
               <Link
                 ref={signOutButtonRef}
+                prefetch={false}
                 className="p-3 rounded-[15px] border-2 border-cornsilk text-cornsilk relative overflow-hidden group"
                 href="/"
                 onClick={handleSignOut}

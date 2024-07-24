@@ -17,10 +17,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`w-screen max-h-screen ${inter.className}`}>
-      <AuthProvider>
+        <AuthProvider>
           <Header />
           {children}
-      </AuthProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { signInWithGoogle } from "@/firebase/auth";
 import Link from "next/link";
 import Image from "next/image";
+import { useAuth } from "./AuthContextProvider";
 
 const anton = Anton({ weight: "400", subsets: ["latin"] });
 
 export default function Introduction() {
+  const { setLoading } = useAuth();
   const containerRef = useRef();
   const logoRef = useRef();
   const projectRef = useRef();
@@ -76,22 +78,34 @@ export default function Introduction() {
       duration: 0.5,
       ease: "back.out(1.7)",
     })
-    .to([projectRef.current, stargateRef.current], {
-      opacity: 0,
-      duration: 0.3,
-    }, "-=0.2")
-    .to(projectRef.current, {
-      x: -105,
-      opacity: 1,
-      duration: 0.5,
-      ease: "power4.out",
-    }, "-=0.1")
-    .to(stargateRef.current, {
-      x: 115,
-      opacity: 1,
-      duration: 0.5,
-      ease: "power4.out",
-    }, "<");
+      .to(
+        [projectRef.current, stargateRef.current],
+        {
+          opacity: 0,
+          duration: 0.3,
+        },
+        "-=0.2",
+      )
+      .to(
+        projectRef.current,
+        {
+          x: -105,
+          opacity: 1,
+          duration: 0.5,
+          ease: "power4.out",
+        },
+        "-=0.1",
+      )
+      .to(
+        stargateRef.current,
+        {
+          x: 115,
+          opacity: 1,
+          duration: 0.5,
+          ease: "power4.out",
+        },
+        "<",
+      );
   }, []);
 
   useEffect(() => {
@@ -123,8 +137,10 @@ export default function Introduction() {
   };
 
   async function handleSignIn(event) {
+    setLoading(true)
     event.preventDefault();
     await signInWithGoogle();
+    router.refresh()
   }
 
   return (
