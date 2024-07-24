@@ -1,7 +1,7 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { signInWithGoogle, signOut } from "@/firebase/auth.js";
+import { signOut } from "@/firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
 import { Anton } from "next/font/google";
 import gsap from "gsap";
@@ -12,8 +12,6 @@ const anton = Anton({ weight: "400", subsets: ["latin"] });
 
 export default function Header() {
   const { user } = useAuth();
-  console.log("user: ", user);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
   const router = useRouter();
   const signOutButtonRef = useRef();
   const fillRef = useRef();
@@ -21,36 +19,8 @@ export default function Header() {
 
   async function handleSignOut(event) {
     event.preventDefault();
-    await signOut();
+    signOut();
   }
-
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      setScriptLoaded(true);
-    };
-
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (scriptLoaded) {
-      window.google.accounts.id.initialize({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-        callback: (response) => {
-          console.log(response);
-        },
-      });
-      window.google.accounts.id.prompt();
-    }
-  }, [scriptLoaded]);
 
   useEffect(() => {
     if (signOutButtonRef.current && fillRef.current) {

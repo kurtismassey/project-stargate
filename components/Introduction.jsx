@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import gsap from "gsap";
 import { Anton } from "next/font/google";
 import { useRouter } from "next/navigation";
@@ -125,7 +125,6 @@ export default function Introduction() {
   async function handleSignIn(event) {
     event.preventDefault();
     await signInWithGoogle();
-    router.replace("/onboarding")
   }
 
   return (

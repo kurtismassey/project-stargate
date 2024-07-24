@@ -6,11 +6,7 @@ export async function middleware(request) {
     return;
   }
 
-  const { currentUser, loading } = await getAuthenticatedAppForUser();
-
-  if (loading) {
-    return NextResponse.next();
-  }
+  const { currentUser } = await getAuthenticatedAppForUser();
 
   const publicRoutes = ["/"];
 
