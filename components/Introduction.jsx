@@ -1,79 +1,189 @@
-'use client';
-import { useLayoutEffect, useRef } from "react";
+"use client";
+import { useRef, useEffect } from "react";
 import gsap from "gsap";
 import { Anton } from "next/font/google";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
+import { signInWithGoogle } from "@/firebase/auth";
+import Link from "next/link";
+import Image from "next/image";
 
-const anton = Anton({ weight: '400', subsets: ['latin'] });
+const anton = Anton({ weight: "400", subsets: ["latin"] });
 
 export default function Introduction() {
-    const logoRef = useRef(null);
-    const projectRef = useRef(null);
-    const stargateRef = useRef(null);
-    const titleRef = useRef(null);
-    const router = useRouter();
+  const containerRef = useRef();
+  const logoRef = useRef();
+  const projectRef = useRef();
+  const stargateRef = useRef();
+  const titleRef = useRef();
+  const signInButtonRef = useRef();
+  const fillRef = useRef();
+  const router = useRouter();
 
-    useLayoutEffect(() => {
-        const animateWord = (word, index) => {
-            const colors = ["#065B84", "#FD4136", "#2283B0", "#01172C", "#FFFADC"];
-            titleRef.current.innerHTML = "";
-            for (let i = 0; i < word.length; i++) {
-                const letterSpan = document.createElement('span');
-                letterSpan.textContent = word.charAt(i);
-                letterSpan.style.color = colors[i % colors.length];
-                titleRef.current.appendChild(letterSpan);
-                gsap.fromTo(letterSpan, 
-                    { opacity: 0 }, 
-                    { 
-                        opacity: 1, 
-                        duration: 0.8, 
-                        delay: i * 0.05,
-                        onComplete: () => {
-                            letterSpan.style.color = "#FFFADC";
-                            setTimeout(animateLogo, 1000);
-                        }
-                    }
-                );
-            }
-        };
+  useEffect(() => {
+    const tl = gsap.timeline();
 
-        const animateWords = () => {
-            gsap.delayedCall(0, () => animateWord('PROJECT STARGATE', 0));
-        };
+    const animateWord = (word) => {
+      const colors = ["#065B84", "#FD4136", "#2283B0", "#01172C", "#FFFADC"];
+      titleRef.current.innerHTML = "";
+      const letters = [];
+      for (let i = 0; i < word.length; i++) {
+        const letterSpan = document.createElement("span");
+        letterSpan.textContent = word.charAt(i);
+        letterSpan.style.color = colors[i % colors.length];
+        titleRef.current.appendChild(letterSpan);
+        letters.push(letterSpan);
 
-        const animateLogo = () => {
-            gsap.set(logoRef.current, { opacity: 0, scale: 0 });
-            gsap.set([projectRef.current, stargateRef.current], { opacity: 0, y: 0 });
+        tl.fromTo(
+          letterSpan,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.1 },
+          i * 0.05,
+        );
+      }
 
-            gsap.to(logoRef.current, {
-                opacity: 1,
-                scale: 1,
-                duration: 0.3,
-                ease: "sine.in",
-                onComplete: () => {
-                    gsap.to(titleRef.current, { opacity: 0, duration: 0.3 });
-                    gsap.to([projectRef.current, stargateRef.current], { opacity: 1, duration: 0.3 });
-                    gsap.to(projectRef.current, { x: -105, duration: 0.15, ease: "expo.out" });
-                    gsap.to(stargateRef.current, { x: 70, duration: 0.15, ease: "expo.out" });                    
-                }
-            });
-        };
+      tl.to(letters, {
+        color: "#FFFADC",
+        duration: 0.3,
+        stagger: 0.02,
+      });
 
-        gsap.set([logoRef.current, projectRef.current, stargateRef.current], { opacity: 0 });
-        animateWords();
+      return letters;
+    };
 
-    }, [router]);
+    const letters = animateWord("PROJECT STARGATE");
 
-    return (
-        <>
-            <div className="absolute w-full h-screen p-5 flex flex-col justify-center items-center">
-                <div className="absolute flex items-center">
-                    <span ref={projectRef} className={`text-[35px] ${anton.className} absolute opacity-0`}>PROJECT</span>
-                    <img ref={logoRef} src="/icon.png" alt="Project Stargate" className="w-[75px] opacity-0" />
-                    <span ref={stargateRef} className={`text-[35px] ${anton.className} absolute opacity-0`}>STARGATE</span>
-                </div>
-                <h1 ref={titleRef} className={`text-[35px] p-0 m-0 ${anton.className}`}></h1>
-            </div>
-        </>
-    );
-};
+    tl.to(letters, {
+      opacity: 0,
+      duration: 0.3,
+      stagger: 0.02,
+      onComplete: () => {
+        gsap.set(titleRef.current, { display: "none" });
+      },
+    });
+
+    gsap.set([projectRef.current, stargateRef.current], {
+      opacity: 0,
+      x: 0,
+    });
+    gsap.set(logoRef.current, {
+      opacity: 0,
+      scale: 0,
+    });
+
+    tl.to([projectRef.current, stargateRef.current], {
+      opacity: 1,
+      duration: 0.3,
+    })
+      .to(
+        logoRef.current,
+        {
+          opacity: 1,
+          scale: 1,
+          duration: 0.5,
+          ease: "back.out(1.7)",
+        },
+        "-=0.1",
+      )
+      .to(
+        projectRef.current,
+        {
+          x: -105,
+          duration: 0.5,
+          ease: "power2.out",
+        },
+        "-=0.3",
+      )
+      .to(
+        stargateRef.current,
+        {
+          x: 115,
+          duration: 0.5,
+          ease: "power2.out",
+        },
+        "<",
+      );
+  }, [router]);
+
+  useEffect(() => {
+    if (signInButtonRef.current && fillRef.current) {
+      gsap.set(fillRef.current, { scaleY: 0, transformOrigin: "bottom" });
+    }
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (fillRef.current) {
+      gsap.to(fillRef.current, {
+        opacity: 0.3,
+        scaleY: 1,
+        duration: 0.5,
+        ease: "power2.out",
+      });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (fillRef.current) {
+      gsap.to(fillRef.current, {
+        opacity: 0.3,
+        scaleY: 0,
+        duration: 0.5,
+        ease: "power2.in",
+      });
+    }
+  };
+
+  async function handleSignIn() {
+    event.preventDefault();
+    await signInWithGoogle();
+  }
+
+  return (
+    <>
+      <div className="absolute w-full h-screen p-5 flex flex-col justify-center items-center">
+        <div
+          ref={containerRef}
+          className="relative flex items-center justify-center w-full"
+        >
+          <h1
+            ref={titleRef}
+            className={`text-[35px] p-0 m-0 ${anton.className} absolute`}
+          ></h1>
+          <span
+            ref={projectRef}
+            className={`text-[42px] ${anton.className} absolute opacity-0 text-[#FFFADC]`}
+          >
+            PROJECT
+          </span>
+          <Image
+            ref={logoRef}
+            src="/icon.png"
+            alt="Project Stargate"
+            className="opacity-0 z-10"
+            width={90}
+            height={90}
+          />
+          <span
+            ref={stargateRef}
+            className={`text-[42px] ${anton.className} absolute opacity-0 text-[#FFFADC]`}
+          >
+            STARGATE
+          </span>
+        </div>
+        <Link
+          ref={signInButtonRef}
+          href="/onboarding"
+          onClick={handleSignIn}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          className="p-3 px-6 rounded-full border-2 border-[#FFFADC] text-[#FFFADC] relative overflow-hidden group mt-8"
+        >
+          <span className="relative z-10">Sign In with Google</span>
+          <span
+            className="absolute inset-0 bg-[#FFFADC] opacity-0"
+            ref={fillRef}
+          ></span>
+        </Link>
+      </div>
+    </>
+  );
+}

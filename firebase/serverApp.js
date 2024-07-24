@@ -1,4 +1,4 @@
-import "server-only";
+"use server";
 
 import { headers } from "next/headers";
 import { initializeServerApp } from "firebase/app";
@@ -11,11 +11,7 @@ export async function getAuthenticatedAppForUser() {
 
   const firebaseServerApp = initializeServerApp(
     firebaseConfig,
-    idToken
-      ? {
-          authIdToken: idToken,
-        }
-      : {}
+    idToken ? { authIdToken: idToken } : {},
   );
 
   const auth = getAuth(firebaseServerApp);

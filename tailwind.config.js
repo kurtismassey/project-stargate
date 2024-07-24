@@ -14,14 +14,12 @@ module.exports = {
       },
     },
     colors: {
-      stargate: {
-        cornsilk: "hsl(var(--cornsilk))",
-        blue: "hsl(var(--blue-ncs))",
-        bluelapis: "hsl(var(--lapis-lazuli))",
-        blueoxford: "hsl(var(--oxford-blue",
-        vermilion: "hsl(var(--vermilion))"
-      },
-    }
+      cornsilk: "#fffadcff",
+      blue: "#2283b0ff",
+      bluelapis: "#065b84ff",
+      blueoxford: "#fd4136ff",
+      vermilion: "#01172cff",
+    },
   },
   plugins: [],
 };

@@ -1,8 +1,7 @@
 export default function Sessions() {
-    
-return (
+  return (
     <>
-    <h1>Sessions</h1>
+      <h1>Sessions</h1>
     </>
-)
-};
+  );
+}

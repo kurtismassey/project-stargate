@@ -2,16 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --cornsilk: #fffadcff;
-  --blue-ncs: #2283b0ff;
-  --lapis-lazuli: #065b84ff;
-  --vermilion: #fd4136ff;
-  --oxford-blue: #01172cff;
-}
-
 body {
   background-color: black;
-  color: var(--cornsilk);
+  color: cornsilk;
   overflow-x: hidden;
 }

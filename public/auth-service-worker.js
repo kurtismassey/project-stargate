@@ -7996,15 +7996,14 @@
   registerVersion(name4, version4, "esm2017");
 
   // auth-service-worker.js
-  var firebaseConfig;
-  self.addEventListener("install", (event) => {
-    const serializedFirebaseConfig = new URL(location).searchParams.get("firebaseConfig");
-    if (!serializedFirebaseConfig) {
-      throw new Error("Firebase Config object not found in service worker query string.");
-    }
-    firebaseConfig = JSON.parse(serializedFirebaseConfig);
-    console.log("Service worker installed with Firebase config", firebaseConfig);
-  });
+  var firebaseConfig = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  };
   self.addEventListener("fetch", (event) => {
     const { origin } = new URL(event.request.url);
     if (origin !== self.location.origin) return;
