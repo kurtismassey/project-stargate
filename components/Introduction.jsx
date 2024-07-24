@@ -70,38 +70,28 @@ export default function Introduction() {
       scale: 0,
     });
 
-    tl.to([projectRef.current, stargateRef.current], {
+    tl.to(logoRef.current, {
       opacity: 1,
-      duration: 0.3,
+      scale: 1,
+      duration: 0.5,
+      ease: "back.out(1.7)",
     })
-      .to(
-        logoRef.current,
-        {
-          opacity: 1,
-          scale: 1,
-          duration: 0.5,
-          ease: "back.out(1.7)",
-        },
-        "-=0.1",
-      )
-      .to(
-        projectRef.current,
-        {
-          x: -105,
-          duration: 0.5,
-          ease: "power2.out",
-        },
-        "-=0.3",
-      )
-      .to(
-        stargateRef.current,
-        {
-          x: 115,
-          duration: 0.5,
-          ease: "power2.out",
-        },
-        "<",
-      );
+    .to([projectRef.current, stargateRef.current], {
+      opacity: 0,
+      duration: 0.3,
+    }, "-=0.2")
+    .to(projectRef.current, {
+      x: -105,
+      opacity: 1,
+      duration: 0.5,
+      ease: "power4.out",
+    }, "-=0.1")
+    .to(stargateRef.current, {
+      x: 115,
+      opacity: 1,
+      duration: 0.5,
+      ease: "power4.out",
+    }, "<");
   }, []);
 
   useEffect(() => {
