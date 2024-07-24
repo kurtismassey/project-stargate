@@ -178,6 +178,7 @@ export default function Introduction() {
         <Link
           ref={signInButtonRef}
           href="/onboarding"
+          prefetch={false}
           onClick={handleSignIn}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
