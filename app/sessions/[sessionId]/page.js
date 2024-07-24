@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import QRCode from "qrcode.react";
 import io from "socket.io-client";
+import Link from "next/link";
 
 export default function SessionPage() {
   const params = useParams();
@@ -141,17 +142,9 @@ export default function SessionPage() {
           <p className="mb-2">
             Scan this QR code or open the link on your mobile device:
           </p>
-          <QRCode value={mobileUrl} />
-          <p className="mt-2 text-wrap">
-            <a
-              href={mobileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline text-wrap"
-            >
-              {mobileUrl}
-            </a>
-          </p>
+          <Link href={mobileUrl}>
+            <QRCode value={mobileUrl} />
+          </Link>
         </div>
         <div className="flex flex-col justify-end">
           <div className="mb-2">

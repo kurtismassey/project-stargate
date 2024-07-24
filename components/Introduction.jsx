@@ -102,7 +102,7 @@ export default function Introduction() {
         },
         "<",
       );
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (signInButtonRef.current && fillRef.current) {
@@ -132,9 +132,10 @@ export default function Introduction() {
     }
   };
 
-  async function handleSignIn() {
+  async function handleSignIn(event) {
     event.preventDefault();
     await signInWithGoogle();
+    router.replace("/onboarding")
   }
 
   return (

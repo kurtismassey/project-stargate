@@ -85,7 +85,7 @@ export default function Header() {
 
   return (
     <>
-      {pathname !== "/" && (
+      {pathname !== "/" && !pathname.includes("mobile") && (
         <div className="w-full bg-black top-0 z-50">
           <header className="w-screen flex items-center">
             <Link

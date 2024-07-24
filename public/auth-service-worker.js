@@ -7997,12 +7997,13 @@
 
   // auth-service-worker.js
   var firebaseConfig = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+    apiKey: "AIzaSyAZmPN5mfRx6hAf9JnqRsTtteXob0-2GFg",
+    authDomain: "project-stargate-web.firebaseapp.com",
+    projectId: "project-stargate-web",
+    storageBucket: "project-stargate-web.appspot.com",
+    messagingSenderId: "646512050048",
+    appId: "1:646512050048:web:f83be9c94d256ce394cb65",
+    measurementId: "G-KY5DM20JC3"
   };
   self.addEventListener("fetch", (event) => {
     const { origin } = new URL(event.request.url);

@@ -133,7 +133,7 @@ export default function MobileSessionPage() {
   }
 
   return (
-    <div className="absolute top-0 w-full max-h-screen p-10">
+    <div className="absolute top-0 w-full max-h-screen pt-3 p-10">
       <div className="flex flex-inline justify-between items-center mb-4">
         <Image src="/icon.png" alt="Project Stargate" width={50} height={50} />
         <h1 className="text-2xl font-bold">Session {sessionId}</h1>
@@ -144,20 +144,23 @@ export default function MobileSessionPage() {
         height={550}
         className="border border-gray-300 touch-none"
       />
-      <div className="mt-4 flex flex-col items-start">
-        <label htmlFor="colorPicker" className="mb-2">
-          Select Pen Color:{" "}
-        </label>
-        <input
-          type="color"
-          id="colorPicker"
-          value={penColor}
-          onChange={(e) => setPenColor(e.target.value)}
-          className="mb-4"
-        />
+      <div className="p-5 flex flex-inline items-center align-center">
+        <div className="align-center items-center mr-5">
+          <label htmlFor="colorPicker">Select Pen Color: </label>
+          <input
+            type="color"
+            id="colorPicker"
+            value={penColor}
+            onChange={(e) => setPenColor(e.target.value)}
+          />
+        </div>
         <button
           onClick={clearCanvas}
-          className="px-4 py-2 bg-red-500 text-white rounded"
+          className="rounded-lg p-2 justify-end"
+          style={{
+            color: "black",
+            backgroundColor: "white",
+          }}
         >
           Clear Canvas
         </button>

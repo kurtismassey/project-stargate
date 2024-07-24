@@ -1,8 +1,10 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged } from "@/firebase/auth.js";
+import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { firebaseConfig } from "@/firebase/config";
+import { auth } from "@/firebase/clientApp";
+import Loading from "./Loading";
 
 const AuthContext = createContext(null);
 
@@ -27,27 +29,23 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged((authUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
       setLoading(false);
 
-      if (authUser && router.pathname === "/") {
+      if (user && router.pathname === "/") {
         router.push("/onboarding");
-      } else if (!authUser && router.pathname !== "/") {
+      } else if (!user && router.pathname !== "/") {
         router.push("/");
       }
     });
 
     return () => unsubscribe();
-  }, [router]);
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
-      {children}
+    <AuthContext.Provider value={{ user }}>
+      {loading ? (<Loading/>) : children}
     </AuthContext.Provider>
   );
 };
