@@ -16,7 +16,7 @@ export default function MobileSessionPage() {
   useEffect(() => {
     const initSocket = async () => {
       socketRef.current = io("/", {
-        path: "/api/socketio",
+        path: "/api/sketch",
       });
 
       socketRef.current.on("connect", () => {

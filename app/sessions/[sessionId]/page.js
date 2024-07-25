@@ -17,7 +17,7 @@ export default function SessionPage() {
 
   useEffect(() => {
     socketRef.current = io("/", {
-      path: "/api/socketio",
+      path: "/api/sketch",
     });
 
     socketRef.current.on("connect", () => {
