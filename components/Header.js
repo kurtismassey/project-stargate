@@ -1,17 +1,33 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { signOut } from "@/firebase/auth";
+import { signOut } from "firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
 import { Anton } from "next/font/google";
 import gsap from "gsap";
 import Image from "next/image";
-import { useAuth } from "@/components/AuthContextProvider";
+
+import { getTokens } from "next-firebase-auth-edge";
+import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
+import { clientConfig, serverConfig } from "@/config";
+import { getAuth } from "firebase/auth";
+import { app } from "@/firebase";
 
 const anton = Anton({ weight: "400", subsets: ["latin"] });
 
-export default function Header() {
-  const { user } = useAuth();
+export default async function Header() {
+  const tokens = await getTokens(cookies(), {
+    apiKey: clientConfig.apiKey,
+    cookieName: serverConfig.cookieName,
+    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
+    serviceAccount: serverConfig.serviceAccount,
+  });
+
+  if (!tokens) {
+    notFound();
+  }
+
   const router = useRouter();
   const signOutButtonRef = useRef();
   const fillRef = useRef();
@@ -19,7 +35,12 @@ export default function Header() {
 
   async function handleSignOut(event) {
     event.preventDefault();
-    signOut();
+
+    await signOut(getAuth(app));
+  
+    await fetch("/api/logout");
+  
+    router.push("/");
   }
 
   useEffect(() => {
@@ -72,7 +93,7 @@ export default function Header() {
               <div className={`text-[35px] ${anton.className}`}>STARGATE</div>
             </Link>
             <div className="flex flex-grow justify-end pr-10 pl-5">
-              <p className="p-3 mr-5 font-bold">{user?.displayName || ""}</p>
+              <p className="p-3 mr-5 font-bold">{tokens?.decodedToken.displayName || ""}</p>
               <Link
                 ref={signOutButtonRef}
                 prefetch={false}

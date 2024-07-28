@@ -1,10 +1,20 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useAuth } from "@/components/AuthContextProvider";
 import io from "socket.io-client";
 
-export default function Onboarding() {
-  const { user } = useAuth();
+export default async function Onboarding() {
+
+  const tokens = await getTokens(cookies(), {
+    apiKey: clientConfig.apiKey,
+    cookieName: serverConfig.cookieName,
+    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
+    serviceAccount: serverConfig.serviceAccount,
+  });
+
+  if (!tokens) {
+    notFound();
+  }
+
   const [messages, setMessages] = useState([]);
   const socketRef = useRef(null);
 
@@ -13,7 +23,7 @@ export default function Onboarding() {
       const messageText = event.target.value.trim();
       setMessages((prevMessages) => [
         ...prevMessages,
-        { user: user?.displayName, text: messageText },
+        { user: tokens?.decodedToken.displayName || "", text: messageText },
       ]);
       event.target.value = "";
     }

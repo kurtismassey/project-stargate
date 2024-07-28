@@ -1,7 +1,6 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
-import { AuthProvider } from "@/components/AuthContextProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -13,14 +12,19 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const tokens = await getTokens(cookies(), {
+    apiKey: clientConfig.apiKey,
+    cookieName: serverConfig.cookieName,
+    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
+    serviceAccount: serverConfig.serviceAccount,
+  });
+
   return (
     <html lang="en">
       <body className={`w-screen max-h-screen ${inter.className}`}>
-        <AuthProvider>
-          <Header />
+          {tokens && <Header />}
           {children}
-        </AuthProvider>
       </body>
     </html>
   );

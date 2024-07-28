@@ -3,10 +3,11 @@ import { useRef, useEffect, useState } from "react";
 import gsap from "gsap";
 import { Anton } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { signInWithGoogle } from "@/firebase/auth";
+import { GoogleAuthProvider, signInWithGoogle } from "firebase/auth";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "./AuthContextProvider";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { app } from "@/firebase";
 
 const anton = Anton({ weight: "400", subsets: ["latin"] });
 
@@ -20,6 +21,7 @@ export default function Introduction() {
   const signInButtonRef = useRef();
   const fillRef = useRef();
   const router = useRouter();
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const tl = gsap.timeline();
@@ -139,8 +141,26 @@ export default function Introduction() {
   async function handleSignIn(event) {
     setLoading(true)
     event.preventDefault();
-    await signInWithGoogle();
-    router.refresh()
+    setError("");
+
+    try {
+      const credential = await signInWithGoogle(
+        getAuth(app),
+        new GoogleAuthProvider()
+      );
+      const idToken = await credential.user.getIdToken();
+      await fetch("/api/login", {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      setLoading(false)
+      router.push("/onboarding");
+    } catch (e) {
+      setError((e).message);
+      setLoading(false)
+    }
   }
 
   return (

@@ -15,3 +15,15 @@ env:
     value: G-KY5DM20JC3
   - variable: NEXT_PUBLIC_GOOGLE_CLIENT_ID
     value: 646512050048-4c0uredr4uq4e9i4hfee76n3rv8e1brc.apps.googleusercontent.com
+  - variable: AUTH_COOKIE_NAME
+    value: STARGATE_AUTH
+  - variable: FIREBASE_ADMIN_CLIENT_EMAIL
+    secret: FIREBASE_ADMIN_CLIENT_EMAIL
+  - variable: FIREBASE_ADMIN_PRIVATE_KEY
+    secret: FIREBASE_ADMIN_PRIVATE_KEY
+  - variable: AUTH_COOKIE_SIGNATURE_KEY_CURRENT
+    secret: AUTH_COOKIE_SIGNATURE_KEY_CURRENT
+  - variable: AUTH_COOKIE_SIGNATURE_KEY_PREVIOUS
+    secret: AUTH_COOKIE_SIGNATURE_KEY_PREVIOUS
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY
