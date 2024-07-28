@@ -7,6 +7,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import Link from "next/link";
 import Image from "next/image";
 import { app } from "@/firebase";
+import Loading from "./Loading";
 
 const anton = Anton({ weight: "400", subsets: ["latin"] });
 
@@ -160,6 +161,10 @@ export default function Introduction() {
       setError((e).message);
       setLoading(false)
     }
+  }
+
+  if (loading) {
+    return <Loading />
   }
 
   return (

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authMiddleware, redirectToHome, redirectToLogin } from "next-firebase-auth-edge";
 import { clientConfig, serverConfig } from "./config";
 
-const PUBLIC_PATHS = ['/'];
+const PUBLIC_PATHS = ['/login'];
 
 export async function middleware(request) {
   return authMiddleware(request, {
@@ -28,7 +28,7 @@ export async function middleware(request) {
       console.info('Missing or malformed credentials', {reason});
 
       return redirectToLogin(request, {
-        path: '/',
+        path: '/login',
         publicPaths: PUBLIC_PATHS
       });
     },
@@ -36,7 +36,7 @@ export async function middleware(request) {
       console.error('Unhandled authentication error', {error});
       
       return redirectToLogin(request, {
-        path: '/',
+        path: '/login',
         publicPaths: PUBLIC_PATHS
       });
     }
