@@ -23,7 +23,7 @@ export default function Header({ initialUser }) {
     await signOut(auth);
     await fetch("/api/logout");
   
-    router.push("/");
+    router.push("/login");
   }
 
   useEffect(() => {
@@ -93,7 +93,7 @@ export default function Header({ initialUser }) {
                 ref={signOutButtonRef}
                 prefetch={false}
                 className="p-3 rounded-[15px] border-2 border-cornsilk text-cornsilk relative overflow-hidden group"
-                href="/"
+                href="/login"
                 onClick={handleSignOut}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
