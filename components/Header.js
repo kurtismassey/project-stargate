@@ -10,13 +10,13 @@ import { app } from "@/firebase";
 
 const anton = Anton({ weight: "400", subsets: ["latin"] });
 
-export default function Header() {
+export default function Header({ initialUser }) {
   const auth = getAuth(app);
   const router = useRouter();
   const signOutButtonRef = useRef();
   const fillRef = useRef();
   const pathname = usePathname();
-  const [currentUser, setCurrentUser] = useState(null)
+  const [currentUser, setCurrentUser] = useState(initialUser)
 
   async function handleSignOut(event) {
     event.preventDefault();
@@ -32,8 +32,7 @@ export default function Header() {
         setCurrentUser(user)
         console.log(currentUser)
       } else {
-        router.push("/")
-        console.error("Not signed in")
+        router.push("/login")
       }
     });
   }, [])
@@ -72,7 +71,7 @@ export default function Header() {
 
   return (
     <>
-      {pathname !== "/" && !pathname.includes("mobile") && (
+      { pathname !== "/login" && !pathname.includes("mobile") && (
         <div className="w-full bg-black top-0 z-50">
           <header className="w-screen flex items-center">
             <Link
