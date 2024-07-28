@@ -8,6 +8,7 @@
     "start": "NODE_ENV=production node server.js",
     "build-service-worker": "npx esbuild auth-service-worker.js --bundle --outfile=public/auth-service-worker.js",
     "lint": "next lint",
+    "gcp-build":"",
     "format": "npx prettier . --write"
   },
   "dependencies": {
