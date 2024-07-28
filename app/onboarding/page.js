@@ -12,13 +12,9 @@ export default function Onboarding() {
 
   useEffect(() => {
     onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user)
-      } else {
-        console.error("Not signed in")
-      }
+      setCurrentUser(user)
     });
-  }, [])
+  }, [currentUser])
 
   const submitMessage = (event) => {
     if (event.key === "Enter") {

@@ -28,14 +28,10 @@ export default function Header({ initialUser }) {
 
   useEffect(() => {
     onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user)
-        console.log(currentUser)
-      } else {
-        router.push("/login")
-      }
+      setCurrentUser(user)
+      console.log(currentUser)
     });
-  }, [])
+  }, [currentUser])
 
 
   useEffect(() => {
