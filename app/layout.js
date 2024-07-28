@@ -1,6 +1,9 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
+import { getTokens } from "next-firebase-auth-edge";
+import { cookies } from "next/headers";
+import { serverConfig, clientConfig } from "@/config";
 
 const inter = Inter({ subsets: ["latin"] });
 

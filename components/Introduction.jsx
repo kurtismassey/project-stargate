@@ -3,16 +3,14 @@ import { useRef, useEffect, useState } from "react";
 import gsap from "gsap";
 import { Anton } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { GoogleAuthProvider, signInWithGoogle } from "firebase/auth";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import Link from "next/link";
 import Image from "next/image";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { app } from "@/firebase";
 
 const anton = Anton({ weight: "400", subsets: ["latin"] });
 
 export default function Introduction() {
-  const { setLoading } = useAuth();
   const containerRef = useRef();
   const logoRef = useRef();
   const projectRef = useRef();
@@ -21,6 +19,7 @@ export default function Introduction() {
   const signInButtonRef = useRef();
   const fillRef = useRef();
   const router = useRouter();
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -144,7 +143,7 @@ export default function Introduction() {
     setError("");
 
     try {
-      const credential = await signInWithGoogle(
+      const credential = await signInWithPopup(
         getAuth(app),
         new GoogleAuthProvider()
       );

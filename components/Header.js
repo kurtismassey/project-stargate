@@ -1,47 +1,43 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
 import { Anton } from "next/font/google";
 import gsap from "gsap";
 import Image from "next/image";
-
-import { getTokens } from "next-firebase-auth-edge";
-import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
-import { clientConfig, serverConfig } from "@/config";
-import { getAuth } from "firebase/auth";
 import { app } from "@/firebase";
 
 const anton = Anton({ weight: "400", subsets: ["latin"] });
 
-export default async function Header() {
-  const tokens = await getTokens(cookies(), {
-    apiKey: clientConfig.apiKey,
-    cookieName: serverConfig.cookieName,
-    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
-    serviceAccount: serverConfig.serviceAccount,
-  });
-
-  if (!tokens) {
-    notFound();
-  }
-
+export default function Header() {
+  const auth = getAuth(app);
   const router = useRouter();
   const signOutButtonRef = useRef();
   const fillRef = useRef();
   const pathname = usePathname();
+  const [currentUser, setCurrentUser] = useState(null)
 
   async function handleSignOut(event) {
     event.preventDefault();
-
-    await signOut(getAuth(app));
-  
+    await signOut(auth);
     await fetch("/api/logout");
   
     router.push("/");
   }
+
+  useEffect(() => {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user)
+        console.log(currentUser)
+      } else {
+        router.push("/")
+        console.error("Not signed in")
+      }
+    });
+  }, [])
+
 
   useEffect(() => {
     if (signOutButtonRef.current && fillRef.current) {
@@ -93,7 +89,7 @@ export default async function Header() {
               <div className={`text-[35px] ${anton.className}`}>STARGATE</div>
             </Link>
             <div className="flex flex-grow justify-end pr-10 pl-5">
-              <p className="p-3 mr-5 font-bold">{tokens?.decodedToken.displayName || ""}</p>
+              <p className="p-3 mr-5 font-bold">{currentUser?.displayName || ""}</p>
               <Link
                 ref={signOutButtonRef}
                 prefetch={false}

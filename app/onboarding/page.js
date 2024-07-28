@@ -1,29 +1,31 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
+import { app } from "@/firebase";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
-export default async function Onboarding() {
-
-  const tokens = await getTokens(cookies(), {
-    apiKey: clientConfig.apiKey,
-    cookieName: serverConfig.cookieName,
-    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
-    serviceAccount: serverConfig.serviceAccount,
-  });
-
-  if (!tokens) {
-    notFound();
-  }
-
+export default function Onboarding() {
+  const auth = getAuth(app);
   const [messages, setMessages] = useState([]);
   const socketRef = useRef(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user)
+      } else {
+        console.error("Not signed in")
+      }
+    });
+  }, [])
 
   const submitMessage = (event) => {
     if (event.key === "Enter") {
       const messageText = event.target.value.trim();
       setMessages((prevMessages) => [
         ...prevMessages,
-        { user: tokens?.decodedToken.displayName || "", text: messageText },
+        { user: currentUser.displayName || "", text: messageText },
       ]);
       event.target.value = "";
     }
