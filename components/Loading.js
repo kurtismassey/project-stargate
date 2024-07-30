@@ -29,7 +29,7 @@ export default function Loading() {
         alt="Project Stargate"
       ></Image>
       <h3 className={`mt-2 text-xs text-center uppercase ${anton.className}`}>
-        Tasking
+        Loading...
       </h3>
     </div>
   );

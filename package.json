@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
-    "gcp-build":"",
+    "gcp-build": "",
     "format": "npx prettier . --write"
   },
   "dependencies": {

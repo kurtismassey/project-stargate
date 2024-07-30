@@ -16,7 +16,6 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  
   const tokens = await getTokens(cookies(), {
     apiKey: clientConfig.apiKey,
     cookieName: serverConfig.cookieName,
@@ -26,9 +25,11 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en">
-      <body className={`w-screen max-h-screen ${inter.className}`}>
-          <Header initialUser={tokens?.decodedToken} />
-          {children}
+      <body className={`max-h-screen h-screen w-screen bg-black ${inter.className}`}>
+        <Header initialUser={tokens?.decodedToken} />
+          <main className="flex-grow">
+            {children}
+          </main>
       </body>
     </html>
   );
