@@ -28,10 +28,10 @@ export async function middleware(request) {
     handleInvalidToken: async (reason) => {
       console.info('Missing or malformed credentials', {reason});
 
-      return redirectToLogin(request, {
-        path: '/login',
-        publicPaths: PUBLIC_PATHS
-      });
+      // return redirectToLogin(request, {
+      //   path: '/login',
+      //   publicPaths: PUBLIC_PATHS
+      // });
     },
     handleError: async (error) => {
       console.error('Unhandled authentication error', {error});
