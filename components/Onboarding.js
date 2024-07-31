@@ -125,7 +125,7 @@ export default function Onboarding({ initialUser }) {
       <div ref={loadingScreenRef} className="absolute inset-0 bg-black flex items-center justify-center z-50">
         <div className={`text-4xl text-green-500 animate-pulse glow ${vt323.className}`}>INITIALIZING...</div>
       </div>
-      <div ref={chatWindowRef} className="flex-grow p-6 pb-[190px] overflow-y-auto scanlines">
+      <div ref={chatWindowRef} className="flex-grow p-6 pb-[190px] overflow-y-auto scanlines text-2xl">
         {messages.map((message, index) => (
           <div key={index} className={`mb-4 ${vt323.className} ${message.user === "Monitor" ? "text-yellow-400" : "text-green-500"}`}>
             <span className="font-bold mr-2 glow">[{message.user}]:</span>

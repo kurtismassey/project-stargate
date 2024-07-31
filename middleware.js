@@ -6,6 +6,7 @@ const PUBLIC_PATHS = ['/login'];
 
 export async function middleware(request) {
   return authMiddleware(request, {
+    debug: true,
     loginPath: "/api/login",
     logoutPath: "/api/logout",
     apiKey: clientConfig.apiKey,
