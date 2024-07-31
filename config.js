@@ -1,5 +1,5 @@
 export const serverConfig = {
-    cookieName: process.env.AUTH_COOKIE_NAME,
+    cookieName: "__session",
     cookieSignatureKeys: [process.env.AUTH_COOKIE_SIGNATURE_KEY_CURRENT, process.env.AUTH_COOKIE_SIGNATURE_KEY_PREVIOUS],
     cookieSerializeOptions: {
       path: "/",
