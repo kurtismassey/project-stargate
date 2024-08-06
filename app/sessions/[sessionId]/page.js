@@ -16,7 +16,7 @@ export default function SessionPage() {
   const lastPointRef = useRef(null);
 
   useEffect(() => {
-    socketRef.current = io("/", {
+    socketRef.current = io("websockets-cw7oz6cjmq-uc.a.run.app", {
       path: "/api/sketch",
       transports: ["websocket"],
       reconnectionAttempts: 5,
