@@ -19,6 +19,9 @@ export default function SessionPage() {
     socketRef.current = io("/", {
       path: "/api/sketch",
       transports: ["websocket"],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     socketRef.current.on("connect", () => {

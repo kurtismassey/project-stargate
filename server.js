@@ -18,6 +18,10 @@ app.prepare().then(() => {
 
   const sketch = new Server(server, {
     path: "/api/sketch",
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+    },
   });
 
   sketch.on("connection", (socket) => {
@@ -45,6 +49,10 @@ app.prepare().then(() => {
 
   const gemini = new Server(server, {
     path: "/api/gemini",
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+    },
   });
 
   gemini.on("connection", (socket) => {
