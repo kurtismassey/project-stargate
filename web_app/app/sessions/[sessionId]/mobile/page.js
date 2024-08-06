@@ -15,9 +15,12 @@ export default function MobileSessionPage() {
 
   useEffect(() => {
     const initSocket = async () => {
-      socketRef.current = io("/", {
+      socketRef.current = io("websockets-cw7oz6cjmq-uc.a.run.app", {
         path: "/api/sketch",
         transports: ["websocket"],
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
       });
 
       socketRef.current.on("connect", () => {

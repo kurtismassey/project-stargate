@@ -65,7 +65,7 @@ export default function Onboarding() {
 
   useEffect(() => {
     const initSocket = async () => {
-      socketRef.current = io("/", {
+      socketRef.current = io("websockets-cw7oz6cjmq-uc.a.run.app", {
         path: "/api/gemini",
         transports: ["websocket"],
         reconnectionAttempts: 5,
