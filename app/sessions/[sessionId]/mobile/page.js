@@ -17,6 +17,7 @@ export default function MobileSessionPage() {
     const initSocket = async () => {
       socketRef.current = io("/", {
         path: "/api/sketch",
+        transports: ['websocket']
       });
 
       socketRef.current.on("connect", () => {

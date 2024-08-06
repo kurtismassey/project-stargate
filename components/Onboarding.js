@@ -68,6 +68,7 @@ export default function Onboarding({ initialUser }) {
     const initSocket = async () => {
       socketRef.current = io("/", {
         path: "/api/gemini",
+        transports: ['websocket']
       });
 
       socketRef.current.on("connect", () => {
@@ -133,7 +134,7 @@ export default function Onboarding({ initialUser }) {
           </div>
         ))}
         {isStreaming && (
-          <div className="text-yellow-400 animate-pulse glow">Receiving transmission...</div>
+          <div className={`text-yellow-400 animate-pulse glow ${vt323.className}`}>Receiving transmission...</div>
         )}
         <div ref={endOfMessagesRef}></div>
       </div>
