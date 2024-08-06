@@ -1,18 +1,16 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
-import { app } from "@/firebase";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { gsap } from "gsap";
 import { VT323 } from "next/font/google";
+import { useUserAuth } from "@/components/AuthContext";
 
 const vt323 = VT323({ subsets: ["latin"], weight: "400" });
 
-export default function Onboarding({ initialUser }) {
-  const auth = getAuth(app);
+export default function Onboarding() {
+  const { user } = useUserAuth();
   const [messages, setMessages] = useState([]);
   const socketRef = useRef(null);
-  const [currentUser, setCurrentUser] = useState(initialUser);
   const [isStreaming, setIsStreaming] = useState(false);
   const chatWindowRef = useRef(null);
   const cursorRef = useRef(null);
@@ -22,26 +20,27 @@ export default function Onboarding({ initialUser }) {
   const endOfMessagesRef = useRef(null);
 
   useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-    });
-
     gsap.to(cursorRef.current, {
       opacity: 0,
       repeat: -1,
       yoyo: true,
-      duration: 0.7
+      duration: 0.7,
     });
 
     const tl = gsap.timeline();
-    tl.to(loadingScreenRef.current, { opacity: 0, duration: 0.5 })
-      .to(loadingScreenRef.current, { display: "none" });
+    tl.to(loadingScreenRef.current, { opacity: 0, duration: 0.5 }).to(
+      loadingScreenRef.current,
+      { display: "none" },
+    );
   }, []);
 
   const submitMessage = () => {
     const messageText = inputValue.trim();
     if (messageText) {
-      const newMessage = { user: currentUser.displayName || "Viewer", text: messageText };
+      const newMessage = {
+        user: user?.displayName || "Viewer",
+        text: messageText,
+      };
       setMessages((prevMessages) => [...prevMessages, newMessage]);
       setInputValue("");
       if (socketRef.current) {
@@ -68,7 +67,7 @@ export default function Onboarding({ initialUser }) {
     const initSocket = async () => {
       socketRef.current = io("/", {
         path: "/api/gemini",
-        transports: ['websocket']
+        transports: ["websocket"],
       });
 
       socketRef.current.on("connect", () => {
@@ -78,12 +77,19 @@ export default function Onboarding({ initialUser }) {
       socketRef.current.on("geminiStreamResponse", (response) => {
         setMessages((prevMessages) => {
           const lastMessage = prevMessages[prevMessages.length - 1];
-          if (lastMessage && lastMessage.user === "Monitor" && !lastMessage.isComplete) {
-            const updatedMessages = [...prevMessages.slice(0, -1), {
-              ...lastMessage,
-              text: lastMessage.text + response.text,
-              isComplete: response.isComplete
-            }];
+          if (
+            lastMessage &&
+            lastMessage.user === "Monitor" &&
+            !lastMessage.isComplete
+          ) {
+            const updatedMessages = [
+              ...prevMessages.slice(0, -1),
+              {
+                ...lastMessage,
+                text: lastMessage.text + response.text,
+                isComplete: response.isComplete,
+              },
+            ];
             return updatedMessages;
           } else {
             return [...prevMessages, response];
@@ -123,18 +129,35 @@ export default function Onboarding({ initialUser }) {
 
   return (
     <div className="flex flex-col h-screen pt-[80px] overflow-hidden">
-      <div ref={loadingScreenRef} className="absolute inset-0 bg-black flex items-center justify-center z-50">
-        <div className={`text-4xl text-green-500 animate-pulse glow ${vt323.className}`}>INITIALIZING...</div>
+      <div
+        ref={loadingScreenRef}
+        className="absolute inset-0 bg-black flex items-center justify-center z-50"
+      >
+        <div
+          className={`text-4xl text-green-500 animate-pulse glow ${vt323.className}`}
+        >
+          INITIALIZING...
+        </div>
       </div>
-      <div ref={chatWindowRef} className="flex-grow p-6 pb-[190px] overflow-y-auto scanlines text-2xl">
+      <div
+        ref={chatWindowRef}
+        className="flex-grow p-6 pb-[190px] overflow-y-auto scanlines text-2xl"
+      >
         {messages.map((message, index) => (
-          <div key={index} className={`mb-4 ${vt323.className} ${message.user === "Monitor" ? "text-yellow-400" : "text-green-500"}`}>
+          <div
+            key={index}
+            className={`mb-4 ${vt323.className} ${message.user === "Monitor" ? "text-yellow-400" : "text-green-500"}`}
+          >
             <span className="font-bold mr-2 glow">[{message.user}]:</span>
             <span>{message.text}</span>
           </div>
         ))}
         {isStreaming && (
-          <div className={`text-yellow-400 animate-pulse glow ${vt323.className}`}>Receiving transmission...</div>
+          <div
+            className={`text-yellow-400 animate-pulse glow ${vt323.className}`}
+          >
+            Receiving transmission...
+          </div>
         )}
         <div ref={endOfMessagesRef}></div>
       </div>
@@ -146,7 +169,7 @@ export default function Onboarding({ initialUser }) {
           placeholder="Enter response..."
           className={`w-full border-2 border-green-500 p-4 text-green-500 placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 relative z-10 ${vt323.className}`}
           style={{
-            backgroundColor: "black"
+            backgroundColor: "black",
           }}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
@@ -160,7 +183,12 @@ export default function Onboarding({ initialUser }) {
         >
           {isStreaming ? "TRANSMITTING" : "READY"}
         </button>
-        <span ref={cursorRef} className={`absolute left-9 top-2/3 transform -translate-y-1/2 text-green-500 z-20 ${vt323.className}`}>_</span>
+        <span
+          ref={cursorRef}
+          className={`absolute left-9 top-2/3 transform -translate-y-1/2 text-green-500 z-20 ${vt323.className}`}
+        >
+          _
+        </span>
       </div>
     </div>
   );

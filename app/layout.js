@@ -1,9 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header";
-import { getTokens } from "next-firebase-auth-edge";
-import { cookies } from "next/headers";
-import { serverConfig, clientConfig } from "@/config";
+import AuthProvider from "@/components/AuthContext";
+import ContentWrapper from "@/components/ContentWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -15,21 +13,15 @@ export const metadata = {
   },
 };
 
-export default async function RootLayout({ children }) {
-  const tokens = await getTokens(cookies(), {
-    apiKey: clientConfig.apiKey,
-    cookieName: serverConfig.cookieName,
-    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
-    serviceAccount: serverConfig.serviceAccount,
-  });
-
+export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`max-h-screen h-screen w-screen bg-black ${inter.className}`}>
-        <Header initialUser={tokens?.decodedToken} />
-          <main className="flex-grow">
-            {children}
-          </main>
+      <body
+        className={`max-h-screen h-screen w-screen bg-black ${inter.className}`}
+      >
+        <AuthProvider>
+          <ContentWrapper>{children}</ContentWrapper>
+        </AuthProvider>
       </body>
     </html>
   );

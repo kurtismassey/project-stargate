@@ -1,54 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authMiddleware, redirectToHome, redirectToLogin } from "next-firebase-auth-edge";
-import { clientConfig, serverConfig } from "./config";
+import { getAuthenticatedAppForUser } from "@/firebase/serverApp";
 
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = ["/login"];
 
 export async function middleware(request) {
-  return authMiddleware(request, {
-    debug: true,
-    loginPath: "/api/login",
-    logoutPath: "/api/logout",
-    apiKey: clientConfig.apiKey,
-    cookieName: serverConfig.cookieName,
-    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
-    cookieSerializeOptions: serverConfig.cookieSerializeOptions,
-    serviceAccount: serverConfig.serviceAccount,
-    handleValidToken: async ({token, decodedToken}, headers) => {
-      if (PUBLIC_PATHS.includes(request.nextUrl.pathname)) {
-        return redirectToHome(request);
-      }
+  const { firebaseServerApp, currentUser } = await getAuthenticatedAppForUser();
 
-      return NextResponse.next({
-        request: {
-          headers
-        }
-      });
-    },
-    handleInvalidToken: async (reason) => {
-      console.info('Missing or malformed credentials', {reason});
+  if (!currentUser && PUBLIC_PATHS.includes(request.nextUrl.pathname)) {
+    return NextResponse.next({});
+  }
 
-      // return redirectToLogin(request, {
-      //   path: '/login',
-      //   publicPaths: PUBLIC_PATHS
-      // });
-    },
-    handleError: async (error) => {
-      console.error('Unhandled authentication error', {error});
-      
-      return redirectToLogin(request, {
-        path: '/login',
-        publicPaths: PUBLIC_PATHS
-      });
-    }
-  });
+  if (!currentUser) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (currentUser && PUBLIC_PATHS.includes(request.nextUrl.pathname)) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  return NextResponse.next({});
 }
 
 export const config = {
-  matcher: [
-    "/",
-    "/((?!_next|api|.*\\.).*)",
-    "/api/login",
-    "/api/logout",
-  ],
+  matcher: ["/", "/((?!_next|.*\\.).*)"],
 };
