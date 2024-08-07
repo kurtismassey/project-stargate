@@ -35,7 +35,7 @@ export default function MobileSessionPage() {
   const params = useParams();
   const sessionId = params.sessionId;
   const [isDrawing, setIsDrawing] = useState(false);
-  const [penColor, setPenColor] = useState("#00FF00");
+  const [penColor, setPenColor] = useState("#000000");
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
   const lastPointRef = useRef(null);
@@ -205,7 +205,7 @@ export default function MobileSessionPage() {
         
         <div className="mt-4 flex justify-between items-center">
           <div className="flex items-center">
-            <label htmlFor="colorPicker" className="mr-2 glow">PSYCHIC INK:</label>
+            <label htmlFor="colorPicker" className="mr-2 glow">INK:</label>
             <input
               type="color"
               id="colorPicker"

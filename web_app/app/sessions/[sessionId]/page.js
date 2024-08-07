@@ -36,7 +36,7 @@ export default function SessionPage() {
   const params = useParams();
   const sessionId = params.sessionId;
   const [isDrawing, setIsDrawing] = useState(false);
-  const [penColor, setPenColor] = useState("#00FF00");
+  const [penColor, setPenColor] = useState("#000000");
   const canvasRef = useRef(null);
   const [mobileUrl, setMobileUrl] = useState("");
   const socketRef = useRef(null);
@@ -238,7 +238,7 @@ export default function SessionPage() {
   useEffect(() => {
     const protocol = window.location.protocol;
     const host = window.location.host;
-    const mobileUrl = `${protocol}//${host}/mobile/${sessionId}`;
+    const mobileUrl = `${protocol}//${host}/sessions/${sessionId}/mobile`;
     setMobileUrl(mobileUrl);
   }, [sessionId]);
 
@@ -272,7 +272,7 @@ export default function SessionPage() {
               CLEAR VISION
             </button>
             <div>
-              <label className="mr-2">PSYCHIC INK:</label>
+              <label className="mr-2">INK:</label>
               <input
                 type="color"
                 value={penColor}
@@ -297,9 +297,14 @@ export default function SessionPage() {
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="w-full p-2 border-2 border-green-500 rounded bg-black text-green-500 placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full p-2 border-2 border-green-500 rounded placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
               rows="3"
               placeholder="Describe your vision..."
+              style={{
+                backgroundColor: "black",
+                color: "green",
+                placeholderColor: "green",
+              }}
             ></textarea>
             <span
               ref={cursorRef}
