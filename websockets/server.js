@@ -78,23 +78,23 @@ io.on("connection", (socket) => {
   });
 
   socket.on("sketchAndChat", async (data) => {
-    const { message, sketchDataUrl, sessionId } = data;
+    const { message, sketchArrayBuffer, sessionId } = data;
     let viewerId = "#123";
-
+  
     try {
-      const imageBuffer = Buffer.from(sketchDataUrl.split(',')[1], 'base64');
-
-      const uploadResult = await fileManager.uploadFile(imageBuffer, {
-        mimeType: "image/png",
-        displayName: `Sketch_${sessionId}.png`,
+      const uint8ArrayImage = new Uint8Array(sketchArrayBuffer);
+  
+      const uploadResult = await fileManager.uploadFile(uint8ArrayImage, {
+        mimeType: "image/jpeg",
+        displayName: `Sketch_${sessionId}.jpeg`,
       });
-
+  
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
         model: "gemini-1.5-pro",
         systemInstruction: `You are a project monitor for Project Stargate, your assigned viewer is Viewer ${viewerId}. Use this to refer to them in any responses. You will guide the user through their remote viewing experience, you must be impartial and not lead the viewer in the conversation unless to gather further information. Analyze the provided sketch in your responses.`,
       });
-
+  
       const result = await model.generateContentStream([
         message,
         {
@@ -104,12 +104,12 @@ io.on("connection", (socket) => {
           },
         },
       ]);
-
+  
       let fullResponse = "";
       for await (const chunk of result.stream) {
         const chunkText = chunk.text();
         fullResponse += chunkText;
-
+  
         socket.emit("geminiStreamResponse", {
           text: chunkText,
           user: "Monitor",
@@ -117,16 +117,16 @@ io.on("connection", (socket) => {
           sessionId,
         });
       }
-
+  
       socket.emit("geminiStreamResponse", {
         text: "",
         user: "Monitor",
         isComplete: true,
         sessionId,
       });
-
+  
       await fileManager.deleteFile(uploadResult.file.name);
-
+  
     } catch (error) {
       console.error("Error querying Gemini:", error);
       socket.emit("geminiError", {

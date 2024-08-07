@@ -136,43 +136,46 @@ export default function SessionPage() {
   const drawReceivedStroke = (data) => {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
+
     context.lineWidth = 2;
     context.lineCap = "round";
     context.strokeStyle = data.color;
 
+    const prevX = data.prevX * canvas.width;
+    const prevY = data.prevY * canvas.height;
     const x = data.x * canvas.width;
     const y = data.y * canvas.height;
 
     context.beginPath();
-    context.moveTo(data.prevX * canvas.width, data.prevY * canvas.height);
+    context.moveTo(prevX, prevY);
     context.lineTo(x, y);
     context.stroke();
   };
 
   const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (socketRef.current) {
-      socketRef.current.emit("clear", { sessionId });
-    }
+    socketRef.current.emit("clear", { sessionId });
   };
 
   const submitMessage = () => {
     if (inputValue.trim()) {
       const newMessage = { user: "Viewer", text: inputValue.trim() };
       setMessages((prevMessages) => [...prevMessages, newMessage]);
-      
+
       if (includeSketch) {
         const canvas = canvasRef.current;
-        const sketchDataUrl = canvas.toDataURL();
+        canvas.toBlob((blob) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const arrayBuffer = reader.result;
 
-        socketRef.current.emit("sketchAndChat", {
-          message: inputValue.trim(),
-          sketchDataUrl,
-          sessionId,
-        });
+            socketRef.current.emit("sketchAndChat", {
+              message: inputValue.trim(),
+              sketchArrayBuffer: arrayBuffer,
+              sessionId,
+            });
+          };
+          reader.readAsArrayBuffer(blob);
+        }, "image/jpeg"); // Save as JPEG
       } else {
         socketRef.current.emit("chatOnly", {
           message: inputValue.trim(),
@@ -185,66 +188,101 @@ export default function SessionPage() {
   };
 
   useEffect(() => {
-    setMobileUrl(`${window.location.origin}/sessions/${sessionId}/mobile`);
+    chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
+  }, [messages]);
+
+  useEffect(() => {
+    const protocol = window.location.protocol;
+    const host = window.location.host;
+    const mobileUrl = `${protocol}//${host}/mobile/${sessionId}`;
+    setMobileUrl(mobileUrl);
   }, [sessionId]);
 
   return (
-    <div className="p-5 w-screen h-screen flex">
-      <div className="w-1/2 pr-2">
-        <h1 className="text-2xl font-bold mb-4">Session {sessionId}</h1>
-        <div className="flex flex-col mb-4">
-          <h2 className="text-xl font-semibold mb-2">Open on Mobile</h2>
-          <QRCode value={mobileUrl} />
-          <Link href={mobileUrl}>Mobile Link</Link>
+    <div className="flex flex-col min-h-screen bg-gray-900 text-white">
+      <header className="bg-gray-800 p-4">
+        <h1 className="text-2xl font-bold">Remote Viewing Session</h1>
+      </header>
+
+      <main className="flex-grow flex flex-col items-center p-4">
+        <div className="mb-4">
+          <QRCode value={mobileUrl} size={128} fgColor="#FFFFFF" />
         </div>
-        <div>
+        <p>Scan the QR code to join the session on your mobile device.</p>
+
+        <div className="w-full max-w-4xl mt-8">
+          <div className="flex justify-between items-center mb-4">
+            <button
+              onClick={clearCanvas}
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Clear
+            </button>
+            <div>
+              <label className="mr-2">Pen Color:</label>
+              <input
+                type="color"
+                value={penColor}
+                onChange={(e) => setPenColor(e.target.value)}
+              />
+            </div>
+          </div>
+
           <canvas
             ref={canvasRef}
-            width={350}
-            height={550}
-            className="border border-gray-300"
-          />
-          <div className="mt-2">
-            <input
-              type="color"
-              value={penColor}
-              onChange={(e) => setPenColor(e.target.value)}
-            />
-            <button onClick={clearCanvas} className="ml-2">Clear Canvas</button>
-          </div>
-        </div>
-      </div>
-      <div className="w-1/2 pl-2">
-        <div ref={chatWindowRef} className="h-[500px] overflow-y-auto border border-gray-300 p-2 mb-2">
-          {messages.map((message, index) => (
-            <div key={index} className={message.user === "Monitor" ? "text-blue-500" : "text-green-500"}>
-              <strong>{message.user}:</strong> {message.text}
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-col">
-          <div className="mb-2">
-            <label>
+            width={800}
+            height={400}
+            className="border border-gray-700"
+          ></canvas>
+
+          <div className="mt-4">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              className="w-full p-2 border border-gray-700 rounded"
+              rows="3"
+              placeholder="Type your message here..."
+            ></textarea>
+
+            <div className="flex items-center mt-2">
               <input
                 type="checkbox"
                 checked={includeSketch}
                 onChange={(e) => setIncludeSketch(e.target.checked)}
+                id="includeSketch"
+                className="mr-2"
               />
-              Include sketch with message
-            </label>
-          </div>
-          <div className="flex">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && submitMessage()}
-              className="flex-grow border border-gray-300 p-2"
-            />
-            <button onClick={submitMessage} className="ml-2 bg-blue-500 text-white p-2">Send</button>
+              <label htmlFor="includeSketch">Include sketch with message</label>
+            </div>
+
+            <button
+              onClick={submitMessage}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2"
+            >
+              Send
+            </button>
           </div>
         </div>
-      </div>
+
+        <div
+          className="w-full max-w-4xl mt-8 h-64 overflow-y-auto bg-gray-800 p-4 rounded-lg"
+          ref={chatWindowRef}
+        >
+          {messages.map((message, index) => (
+            <div key={index} className={`mb-2 ${message.user === "Monitor" ? "text-yellow-500" : ""}`}>
+              <strong>{message.user}:</strong> {message.text}
+            </div>
+          ))}
+        </div>
+
+        <Link href="/" className="text-blue-400 mt-8">
+          Go back to the home page
+        </Link>
+      </main>
+
+      <footer className="bg-gray-800 p-4 text-center">
+        <p>&copy; 2024 Remote Viewing Project</p>
+      </footer>
     </div>
   );
 }
