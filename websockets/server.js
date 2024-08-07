@@ -6,6 +6,9 @@ const server = require('http').Server(app);
 const { Server } = require("socket.io");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { GoogleAIFileManager } = require("@google/generative-ai/server");
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 const io = new Server(server, {
   path: "/api/socket",
@@ -26,7 +29,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("draw", (data) => {
-    console.log("Received draw event:", data);
     socket.to(data.sessionId).emit("draw", data);
   });
 
@@ -82,17 +84,20 @@ io.on("connection", (socket) => {
     let viewerId = "#123";
   
     try {
-      const uint8ArrayImage = new Uint8Array(sketchArrayBuffer);
-  
-      const uploadResult = await fileManager.uploadFile(uint8ArrayImage, {
+      const tempFilePath = path.join(os.tmpdir(), `Sketch_${sessionId}_${Date.now()}.jpeg`);
+      fs.writeFileSync(tempFilePath, Buffer.from(sketchArrayBuffer));
+
+      const uploadResult = await fileManager.uploadFile(tempFilePath, {
         mimeType: "image/jpeg",
         displayName: `Sketch_${sessionId}.jpeg`,
       });
-  
+
+      fs.unlinkSync(tempFilePath);
+
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
         model: "gemini-1.5-pro",
-        systemInstruction: `You are a project monitor for Project Stargate, your assigned viewer is Viewer ${viewerId}. Use this to refer to them in any responses. You will guide the user through their remote viewing experience, you must be impartial and not lead the viewer in the conversation unless to gather further information. Analyze the provided sketch in your responses.`,
+        systemInstruction: `You are a project monitor for Project Stargate, your assigned viewer is Viewer ${viewerId}. Use this to refer to them in any responses. You will guide the user through their remote viewing experience, you must be impartial and not lead the viewer in the conversation unless to gather further information. Analyze the provided sketch in your responses, commenting on what you perceive in the viewers sketch.`,
       });
   
       const result = await model.generateContentStream([

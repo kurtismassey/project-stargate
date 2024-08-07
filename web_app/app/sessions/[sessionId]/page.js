@@ -4,12 +4,16 @@ import { useParams } from "next/navigation";
 import QRCode from "qrcode.react";
 import io from "socket.io-client";
 import Link from "next/link";
+import { gsap } from "gsap";
+import { VT323 } from "next/font/google";
+
+const vt323 = VT323({ subsets: ["latin"], weight: "400" });
 
 export default function SessionPage() {
   const params = useParams();
   const sessionId = params.sessionId;
   const [isDrawing, setIsDrawing] = useState(false);
-  const [penColor, setPenColor] = useState("#FFFFFF");
+  const [penColor, setPenColor] = useState("#00FF00");
   const canvasRef = useRef(null);
   const [mobileUrl, setMobileUrl] = useState("");
   const socketRef = useRef(null);
@@ -18,6 +22,23 @@ export default function SessionPage() {
   const [inputValue, setInputValue] = useState("");
   const chatWindowRef = useRef(null);
   const [includeSketch, setIncludeSketch] = useState(false);
+  const cursorRef = useRef(null);
+  const loadingScreenRef = useRef(null);
+
+  useEffect(() => {
+    gsap.to(cursorRef.current, {
+      opacity: 0,
+      repeat: -1,
+      yoyo: true,
+      duration: 0.7,
+    });
+
+    const tl = gsap.timeline();
+    tl.to(loadingScreenRef.current, { opacity: 0, duration: 0.5 }).to(
+      loadingScreenRef.current,
+      { display: "none" },
+    );
+  }, []);
 
   useEffect(() => {
     socketRef.current = io("websockets-cw7oz6cjmq-uc.a.run.app", {
@@ -175,7 +196,7 @@ export default function SessionPage() {
             });
           };
           reader.readAsArrayBuffer(blob);
-        }, "image/jpeg"); // Save as JPEG
+        }, "image/jpeg");
       } else {
         socketRef.current.emit("chatOnly", {
           message: inputValue.trim(),
@@ -199,31 +220,41 @@ export default function SessionPage() {
   }, [sessionId]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900 text-white">
-      <header className="bg-gray-800 p-4">
-        <h1 className="text-2xl font-bold">Remote Viewing Session</h1>
+    <div className={`flex flex-col min-h-screen bg-black text-green-500 ${vt323.className}`}>
+      <div
+        ref={loadingScreenRef}
+        className="absolute inset-0 bg-black flex items-center justify-center z-50"
+      >
+        <div className="text-4xl text-green-500 animate-pulse glow">
+          INITIALIZING PROJECT STARGATE...
+        </div>
+      </div>
+
+      <header className="bg-green-900 bg-opacity-20 p-4 border-b-2 border-green-500">
+        <h1 className="text-3xl font-bold glow">PROJECT STARGATE: REMOTE VIEWING SESSION</h1>
       </header>
 
-      <main className="flex-grow flex flex-col items-center p-4">
-        <div className="mb-4">
-          <QRCode value={mobileUrl} size={128} fgColor="#FFFFFF" />
+      <main className="flex-grow flex flex-col items-center p-4 scanlines">
+        <div className="mb-4 bg-green-500 p-2 rounded">
+          <QRCode value={mobileUrl} size={128} fgColor="#000000" bgColor="#00FF00" />
         </div>
-        <p>Scan the QR code to join the session on your mobile device.</p>
+        <p className="text-xl mb-8 glow">Scan QR code to join session on mobile device.</p>
 
-        <div className="w-full max-w-4xl mt-8">
+        <div className="w-full max-w-4xl">
           <div className="flex justify-between items-center mb-4">
             <button
               onClick={clearCanvas}
-              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+              className="bg-red-700 hover:bg-red-900 text-white font-bold py-2 px-4 rounded glow"
             >
-              Clear
+              CLEAR VISION
             </button>
             <div>
-              <label className="mr-2">Pen Color:</label>
+              <label className="mr-2">PSYCHIC INK:</label>
               <input
                 type="color"
                 value={penColor}
                 onChange={(e) => setPenColor(e.target.value)}
+                className="bg-transparent border-2 border-green-500 rounded"
               />
             </div>
           </div>
@@ -232,17 +263,24 @@ export default function SessionPage() {
             ref={canvasRef}
             width={800}
             height={400}
-            className="border border-gray-700"
+            className="border-4 border-green-500 rounded-lg scanlines"
+            style={{ backgroundColor: 'rgba(0, 255, 0, 0.1)' }}
           ></canvas>
 
-          <div className="mt-4">
+          <div className="mt-4 relative">
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="w-full p-2 border border-gray-700 rounded"
+              className="w-full p-2 border-2 border-green-500 rounded bg-black text-green-500 placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
               rows="3"
-              placeholder="Type your message here..."
+              placeholder="Describe your vision..."
             ></textarea>
+            <span
+              ref={cursorRef}
+              className="absolute left-3 bottom-3 text-green-500 z-20"
+            >
+              _
+            </span>
 
             <div className="flex items-center mt-2">
               <input
@@ -252,37 +290,62 @@ export default function SessionPage() {
                 id="includeSketch"
                 className="mr-2"
               />
-              <label htmlFor="includeSketch">Include sketch with message</label>
+              <label htmlFor="includeSketch" className="text-green-500 glow">Include psychic sketch with transmission</label>
             </div>
 
             <button
               onClick={submitMessage}
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2"
+              className="bg-green-700 hover:bg-green-900 text-white font-bold py-2 px-4 rounded mt-2 glow"
             >
-              Send
+              TRANSMIT
             </button>
           </div>
         </div>
 
         <div
-          className="w-full max-w-4xl mt-8 h-64 overflow-y-auto bg-gray-800 p-4 rounded-lg"
+          className="w-full max-w-4xl mt-8 h-64 overflow-y-auto bg-green-900 bg-opacity-20 p-4 rounded-lg border-2 border-green-500 scanlines"
           ref={chatWindowRef}
         >
           {messages.map((message, index) => (
-            <div key={index} className={`mb-2 ${message.user === "Monitor" ? "text-yellow-500" : ""}`}>
-              <strong>{message.user}:</strong> {message.text}
+            <div key={index} className={`mb-2 ${message.user === "Monitor" ? "text-yellow-400" : "text-green-500"} glow`}>
+              <strong>[{message.user}]:</strong> {message.text}
             </div>
           ))}
         </div>
 
-        <Link href="/" className="text-blue-400 mt-8">
-          Go back to the home page
+        <Link href="/" className="text-blue-400 mt-8 hover:text-blue-600 glow">
+          RETURN TO COMMAND CENTER
         </Link>
       </main>
 
-      <footer className="bg-gray-800 p-4 text-center">
-        <p>&copy; 2024 Remote Viewing Project</p>
+      <footer className="bg-green-900 bg-opacity-20 p-4 text-center border-t-2 border-green-500">
+        <p className="glow">TOP SECRET: PROJECT STARGATE - AUTHORIZED PERSONNEL ONLY</p>
       </footer>
+
+      <style jsx global>{`
+        @keyframes scanline {
+          0% {
+            transform: translateY(0);
+          }
+          100% {
+            transform: translateY(100%);
+          }
+        }
+        .scanlines::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 2px;
+          background-color: rgba(0, 255, 0, 0.3);
+          animation: scanline 6s linear infinite;
+          pointer-events: none;
+        }
+        .glow {
+          text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00;
+        }
+      `}</style>
     </div>
   );
 }
