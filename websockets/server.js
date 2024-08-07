@@ -6,6 +6,7 @@ const server = require('http').Server(app);
 const { Server } = require("socket.io");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { GoogleAIFileManager } = require("@google/generative-ai/server");
+const { Readable } = require('stream');
 
 const io = new Server(server, {
   path: "/api/socket",
@@ -82,11 +83,12 @@ io.on("connection", (socket) => {
     let viewerId = "#123";
 
     try {
-      // Upload sketch image
       const imageBuffer = Buffer.from(sketchDataUrl.split(',')[1], 'base64');
-      const uploadResult = await fileManager.uploadFile(imageBuffer, {
+      const stream = Readable.from(imageBuffer);
+
+      const uploadResult = await fileManager.uploadFile(stream, {
         mimeType: "image/png",
-        displayName: `Sketch_${sessionId}`,
+        displayName: `Sketch_${sessionId}.png`,
       });
 
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
