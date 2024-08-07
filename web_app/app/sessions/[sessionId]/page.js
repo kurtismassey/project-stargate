@@ -14,10 +14,14 @@ export default function SessionPage() {
   const [mobileUrl, setMobileUrl] = useState("");
   const socketRef = useRef(null);
   const lastPointRef = useRef(null);
+  const [messages, setMessages] = useState([]);
+  const [inputValue, setInputValue] = useState("");
+  const chatWindowRef = useRef(null);
+  const [includeSketch, setIncludeSketch] = useState(false);
 
   useEffect(() => {
     socketRef.current = io("websockets-cw7oz6cjmq-uc.a.run.app", {
-      path: "/api/sketch",
+      path: "/api/socket",
       transports: ["websocket"],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -43,27 +47,18 @@ export default function SessionPage() {
       context.clearRect(0, 0, canvas.width, canvas.height);
     });
 
+    socketRef.current.on("geminiStreamResponse", (response) => {
+      if (response.sessionId === sessionId) {
+        setMessages((prevMessages) => [...prevMessages, response]);
+      }
+    });
+
     return () => {
       socketRef.current.off("draw");
       socketRef.current.off("clear");
+      socketRef.current.off("geminiStreamResponse");
     };
   }, [sessionId]);
-
-  const drawReceivedStroke = (data) => {
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-    context.lineWidth = 2;
-    context.lineCap = "round";
-    context.strokeStyle = data.color;
-
-    const x = data.x * canvas.width;
-    const y = data.y * canvas.height;
-
-    context.beginPath();
-    context.moveTo(data.prevX * canvas.width, data.prevY * canvas.height);
-    context.lineTo(x, y);
-    context.stroke();
-  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -123,62 +118,115 @@ export default function SessionPage() {
     };
   }, [isDrawing, penColor, sessionId]);
 
-  function clearCanvas() {
+  const drawReceivedStroke = (data) => {
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+    context.lineWidth = 2;
+    context.lineCap = "round";
+    context.strokeStyle = data.color;
+
+    const x = data.x * canvas.width;
+    const y = data.y * canvas.height;
+
+    context.beginPath();
+    context.moveTo(data.prevX * canvas.width, data.prevY * canvas.height);
+    context.lineTo(x, y);
+    context.stroke();
+  };
+
+  const clearCanvas = () => {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
     context.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (socketRef) {
+    if (socketRef.current) {
       socketRef.current.emit("clear", { sessionId });
     }
-  }
+  };
+
+  const submitMessage = () => {
+    if (inputValue.trim()) {
+      const newMessage = { user: "Viewer", text: inputValue.trim() };
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      
+      if (includeSketch) {
+        const canvas = canvasRef.current;
+        const sketchDataUrl = canvas.toDataURL();
+
+        socketRef.current.emit("sketchAndChat", {
+          message: inputValue.trim(),
+          sketchDataUrl,
+          sessionId,
+        });
+      } else {
+        socketRef.current.emit("chatOnly", {
+          message: inputValue.trim(),
+          sessionId,
+        });
+      }
+
+      setInputValue("");
+    }
+  };
 
   useEffect(() => {
     setMobileUrl(`${window.location.origin}/sessions/${sessionId}/mobile`);
   }, [sessionId]);
 
   return (
-    <div className="p-5 w-screen h-screen">
-      <h1 className="text-2xl font-bold mb-4">Session {sessionId}</h1>
-      <div className="flex flex-inline">
-        <div className="flex flex-col mb-4 align-center items-center">
+    <div className="p-5 w-screen h-screen flex">
+      <div className="w-1/2 pr-2">
+        <h1 className="text-2xl font-bold mb-4">Session {sessionId}</h1>
+        <div className="flex flex-col mb-4">
           <h2 className="text-xl font-semibold mb-2">Open on Mobile</h2>
-          <p className="mb-2">
-            Scan this QR code or open the link on your mobile device:
-          </p>
-          <Link href={mobileUrl}>
-            <QRCode value={mobileUrl} />
-          </Link>
+          <QRCode value={mobileUrl} />
+          <Link href={mobileUrl}>Mobile Link</Link>
         </div>
-        <div className="flex flex-col justify-end">
-          <div className="mb-2">
-            <canvas
-              ref={canvasRef}
-              width={350}
-              height={550}
-              className="border border-gray-300"
+        <div>
+          <canvas
+            ref={canvasRef}
+            width={350}
+            height={550}
+            className="border border-gray-300"
+          />
+          <div className="mt-2">
+            <input
+              type="color"
+              value={penColor}
+              onChange={(e) => setPenColor(e.target.value)}
             />
+            <button onClick={clearCanvas} className="ml-2">Clear Canvas</button>
           </div>
-          <div className="p-5 flex flex-inline items-center align-center">
-            <div className="align-center items-center mr-5">
-              <label htmlFor="colorPicker">Select Pen Color: </label>
-              <input
-                type="color"
-                id="colorPicker"
-                value={penColor}
-                onChange={(e) => setPenColor(e.target.value)}
-              />
+        </div>
+      </div>
+      <div className="w-1/2 pl-2">
+        <div ref={chatWindowRef} className="h-[500px] overflow-y-auto border border-gray-300 p-2 mb-2">
+          {messages.map((message, index) => (
+            <div key={index} className={message.user === "Monitor" ? "text-blue-500" : "text-green-500"}>
+              <strong>{message.user}:</strong> {message.text}
             </div>
-            <button
-              onClick={clearCanvas}
-              className="rounded-lg p-2 justify-end"
-              style={{
-                color: "black",
-                backgroundColor: "white",
-              }}
-            >
-              Clear Canvas
-            </button>
+          ))}
+        </div>
+        <div className="flex flex-col">
+          <div className="mb-2">
+            <label>
+              <input
+                type="checkbox"
+                checked={includeSketch}
+                onChange={(e) => setIncludeSketch(e.target.checked)}
+              />
+              Include sketch with message
+            </label>
+          </div>
+          <div className="flex">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && submitMessage()}
+              className="flex-grow border border-gray-300 p-2"
+            />
+            <button onClick={submitMessage} className="ml-2 bg-blue-500 text-white p-2">Send</button>
           </div>
         </div>
       </div>

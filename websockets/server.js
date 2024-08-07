@@ -1,110 +1,146 @@
 require('dotenv').config();
 const express = require('express');
 const app = express();
-
 const PORT = process.env.PORT || 8080;
-
 const server = require('http').Server(app);
 const { Server } = require("socket.io");
-
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleAIFileManager } = require("@google/generative-ai/server");
 
-const sketch = new Server(server, {
-    path: "/api/sketch",
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"],
-    },
-  });
-
-sketch.on("connection", (socket) => {
-console.log("Client connected");
-
-socket.on("joinSession", (sessionId) => {
-    socket.join(sessionId);
-    console.log(`Client joined session: ${sessionId}`);
-});
-
-socket.on("draw", (data) => {
-    console.log("Received draw event:", data);
-    socket.to(data.sessionId).emit("draw", data);
-});
-
-socket.on("clear", (data) => {
-    console.log(`Clear event received for session: ${data.sessionId}`);
-    io.to(data.sessionId).emit("clear");
-});
-
-socket.on("disconnect", () => {
-    console.log("Client disconnected");
-});
-});
-
-const gemini = new Server(server, {
-path: "/api/gemini",
-cors: {
+const io = new Server(server, {
+  path: "/api/socket",
+  cors: {
     origin: "*",
     methods: ["GET", "POST"],
-},
+  },
 });
 
-gemini.on("connection", (socket) => {
-console.log("Client connected");
-socket.emit("geminiStreamResponse", {
-    text: "Welcome to Project Stargate, are you ready to begin?",
-    user: "Monitor",
-    isComplete: true,
-});
+const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
 
-socket.on("queryGemini", async (messages) => {
+io.on("connection", (socket) => {
+  console.log("Client connected");
+
+  socket.on("joinSession", (sessionId) => {
+    socket.join(sessionId);
+    console.log(`Client joined session: ${sessionId}`);
+  });
+
+  socket.on("draw", (data) => {
+    console.log("Received draw event:", data);
+    socket.to(data.sessionId).emit("draw", data);
+  });
+
+  socket.on("clear", (data) => {
+    console.log(`Clear event received for session: ${data.sessionId}`);
+    io.to(data.sessionId).emit("clear");
+  });
+
+  socket.on("chatOnly", async (data) => {
+    const { message, sessionId } = data;
     let viewerId = "#123";
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    systemInstruction: `You are a project monitor for Project Stargate, your assigned viewer is Viewer ${viewerId}, use this to refer to them in any responses. You will guide the user through their remote viewing experience, you must be impartial and not lead the viewer in the conversion unless to gather further information`,
-    });
-
     try {
-    let prompt = messages
-        .map((msg) => `Viewer ${viewerId}: ${msg.text}`)
-        .join("\n");
-    prompt =
-        `Welcome to Project Stargate, are you ready to begin?\n` + prompt;
-    const result = await model.generateContentStream(prompt);
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-pro",
+        systemInstruction: `You are a project monitor for Project Stargate, your assigned viewer is Viewer ${viewerId}. Use this to refer to them in any responses. You will guide the user through their remote viewing experience, you must be impartial and not lead the viewer in the conversation unless to gather further information.`,
+      });
 
-    let fullResponse = "";
-    for await (const chunk of result.stream) {
+      const result = await model.generateContentStream(message);
+
+      let fullResponse = "";
+      for await (const chunk of result.stream) {
         const chunkText = chunk.text();
         fullResponse += chunkText;
 
         socket.emit("geminiStreamResponse", {
-        text: chunkText,
-        user: "Monitor",
-        isComplete: false,
+          text: chunkText,
+          user: "Monitor",
+          isComplete: false,
+          sessionId,
         });
-    }
+      }
 
-    socket.emit("geminiStreamResponse", {
+      socket.emit("geminiStreamResponse", {
         text: "",
         user: "Monitor",
         isComplete: true,
-    });
+        sessionId,
+      });
+
     } catch (error) {
-    console.error("Error querying Gemini:", error);
-    socket.emit("geminiError", {
+      console.error("Error querying Gemini:", error);
+      socket.emit("geminiError", {
         message: "Error processing your request",
-    });
+        sessionId,
+      });
     }
-});
+  });
 
-socket.on("disconnect", () => {
+  socket.on("sketchAndChat", async (data) => {
+    const { message, sketchDataUrl, sessionId } = data;
+    let viewerId = "#123";
+
+    try {
+      // Upload sketch image
+      const imageBuffer = Buffer.from(sketchDataUrl.split(',')[1], 'base64');
+      const uploadResult = await fileManager.uploadFile(imageBuffer, {
+        mimeType: "image/png",
+        displayName: `Sketch_${sessionId}`,
+      });
+
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-pro",
+        systemInstruction: `You are a project monitor for Project Stargate, your assigned viewer is Viewer ${viewerId}. Use this to refer to them in any responses. You will guide the user through their remote viewing experience, you must be impartial and not lead the viewer in the conversation unless to gather further information. Analyze the provided sketch in your responses.`,
+      });
+
+      const result = await model.generateContentStream([
+        message,
+        {
+          fileData: {
+            fileUri: uploadResult.file.uri,
+            mimeType: uploadResult.file.mimeType,
+          },
+        },
+      ]);
+
+      let fullResponse = "";
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        fullResponse += chunkText;
+
+        socket.emit("geminiStreamResponse", {
+          text: chunkText,
+          user: "Monitor",
+          isComplete: false,
+          sessionId,
+        });
+      }
+
+      socket.emit("geminiStreamResponse", {
+        text: "",
+        user: "Monitor",
+        isComplete: true,
+        sessionId,
+      });
+
+      await fileManager.deleteFile(uploadResult.file.name);
+
+    } catch (error) {
+      console.error("Error querying Gemini:", error);
+      socket.emit("geminiError", {
+        message: "Error processing your request",
+        sessionId,
+      });
+    }
+  });
+
+  socket.on("disconnect", () => {
     console.log("Client disconnected");
-});
+  });
 });
 
-server.listen(PORT, () =>
-    console.log(`Listening on port ${PORT}`)
-  );
+server.listen(PORT, () => console.log(`Listening on port ${PORT}`));
 
 module.exports = server;
