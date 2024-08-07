@@ -16,9 +16,6 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: cd into web_app
-        run: cd web_app
-
       - id: auth
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v2"
@@ -34,6 +31,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
+          cd web_app
           echo "FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}" >> .env
           echo "FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}" >> .env
           echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}" >> .env
