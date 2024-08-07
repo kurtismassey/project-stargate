@@ -9,6 +9,29 @@ import { VT323 } from "next/font/google";
 
 const vt323 = VT323({ subsets: ["latin"], weight: "400" });
 
+const AgedPaperBackground = ({ width, height }) => {
+  return (
+    <div className="absolute inset-0">
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <filter id="paper-texture">
+          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise" />
+          <feDiffuseLighting in="noise" lightingColor="#f5e5c0" surfaceScale="2">
+            <feDistantLight azimuth="45" elevation="60" />
+          </feDiffuseLighting>
+        </filter>
+        <rect width="100%" height="100%" filter="url(#paper-texture)" />
+        <rect width="100%" height="100%" fill="rgba(245, 229, 192, 0.7)" />
+      </svg>
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-amber-100/30" />
+    </div>
+  );
+};
+
 export default function SessionPage() {
   const params = useParams();
   const sessionId = params.sessionId;
@@ -259,13 +282,16 @@ export default function SessionPage() {
             </div>
           </div>
 
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={400}
-            className="border-4 border-green-500 rounded-lg scanlines"
-            style={{ backgroundColor: 'rgba(0, 255, 0, 0.1)' }}
-          ></canvas>
+          <div className="relative">
+            <AgedPaperBackground width={800} height={400} />
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={400}
+              className="border-4 border-green-500 rounded-lg scanlines"
+              style={{ position: 'relative', zIndex: 1 }}
+            ></canvas>
+          </div>
 
           <div className="mt-4 relative">
             <textarea
