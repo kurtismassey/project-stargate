@@ -14,7 +14,7 @@ export default function MobileSessionPage() {
   const lastPointRef = useRef(null);
 
   useEffect(() => {
-    const initSocket = async () => {
+    const initSocket = async () => {g
       socketRef.current = io("websockets-cw7oz6cjmq-uc.a.run.app", {
         path: "/api/socket",
         transports: ["websocket"],

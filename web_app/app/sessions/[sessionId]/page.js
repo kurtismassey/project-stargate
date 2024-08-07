@@ -49,7 +49,22 @@ export default function SessionPage() {
 
     socketRef.current.on("geminiStreamResponse", (response) => {
       if (response.sessionId === sessionId) {
-        setMessages((prevMessages) => [...prevMessages, response]);
+        setMessages((prevMessages) => {
+          const lastMessage = prevMessages[prevMessages.length - 1];
+          if (lastMessage && lastMessage.user === "Monitor" && !lastMessage.isComplete) {
+            const updatedMessages = [
+              ...prevMessages.slice(0, -1),
+              {
+                ...lastMessage,
+                text: lastMessage.text + response.text,
+                isComplete: response.isComplete,
+              },
+            ];
+            return updatedMessages;
+          } else {
+            return [...prevMessages, response];
+          }
+        });
       }
     });
 
