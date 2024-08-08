@@ -8,29 +8,6 @@ import { gsap } from "gsap";
 
 const vt323 = VT323({ subsets: ["latin"], weight: "400" });
 
-const AgedPaperBackground = ({ width, height }) => {
-  return (
-    <div className="absolute inset-0">
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <filter id="paper-texture">
-          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise" />
-          <feDiffuseLighting in="noise" lightingColor="#f5e5c0" surfaceScale="2">
-            <feDistantLight azimuth="45" elevation="60" />
-          </feDiffuseLighting>
-        </filter>
-        <rect width="100%" height="100%" filter="url(#paper-texture)" />
-        <rect width="100%" height="100%" fill="rgba(245, 229, 192, 0.7)" />
-      </svg>
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-amber-100/30" />
-    </div>
-  );
-};
-
 export default function MobileSessionPage() {
   const params = useParams();
   const sessionId = params.sessionId;
@@ -107,6 +84,7 @@ export default function MobileSessionPage() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
+    canvas.style.backgroundColor = "#EBE7D0";
 
     const startDrawing = (e) => {
       e.preventDefault();
@@ -173,7 +151,9 @@ export default function MobileSessionPage() {
   }
 
   return (
-    <div className={`absolute top-0 w-full min-h-screen bg-black text-green-500 ${vt323.className}`}>
+    <div
+      className={`absolute top-0 w-full max-h-screen text-green-500 ${vt323.className}`}
+    >
       <div
         ref={loadingScreenRef}
         className="absolute inset-0 bg-black flex items-center justify-center z-50"
@@ -185,30 +165,29 @@ export default function MobileSessionPage() {
 
       <div className="p-4">
         <div className="flex justify-between items-center mb-4 border-b-2 border-green-500 pb-2">
-          <Image src="/icon.png" alt="Project Stargate" width={50} height={50} className="glow" />
-          <h1 className="text-2xl font-bold glow">SESSION {sessionId}</h1>
+          <Image
+            src="/icon.png"
+            alt="Project Stargate"
+            width={50}
+            height={50}
+            className="glow"
+          />
+          <h1 className="text-2xl font-bold">SESSION {sessionId}</h1>
         </div>
-        
+
         <div className="relative">
-          <AgedPaperBackground width={350} height={550} />
           <canvas
             ref={canvasRef}
-            width={350}
-            height={550}
-            className="border-4 border-green-500 rounded-lg touch-none scanlines"
-            style={{ position: 'relative', zIndex: 1 }}
+            width={385}
+            height={565}
+            className="border-4 border-green-500 rounded-lg touch-none"
           />
-          <div className="absolute top-2 left-2 text-sm glow">
-            PSYCHIC VISION AREA
-          </div>
-        </div>
-        
-        <div className="mt-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <label htmlFor="colorPicker" className="mr-2 glow">INK:</label>
+          <div className="flex absolute bottom-2 right-2">
+            <p className="mr-2 text-bold" style={{ color: "black" }}>
+              INK
+            </p>
             <input
               type="color"
-              id="colorPicker"
               value={penColor}
               onChange={(e) => setPenColor(e.target.value)}
               className="bg-transparent border-2 border-green-500 rounded"
@@ -216,41 +195,23 @@ export default function MobileSessionPage() {
           </div>
           <button
             onClick={clearCanvas}
-            className="bg-red-700 hover:bg-red-900 text-white font-bold py-2 px-4 rounded glow"
+            className="absolute top-2 right-2 font-bold py-1 px-2 rounded text-sm"
+            style={{
+              color: "black",
+            }}
           >
-            CLEAR VISION
+            CLEAR SKETCH
           </button>
         </div>
       </div>
 
       <footer className="fixed bottom-0 w-full bg-green-900 bg-opacity-20 p-2 text-center border-t-2 border-green-500">
-        <p className="text-sm glow">TOP SECRET: PROJECT STARGATE - MOBILE UNIT</p>
+        <p className="text-sm">
+          <span className="glow">SECRET: PROJECT STARGATE</span> -{" "}
+          <span className="font-bold">MOBILE</span> -{" "}
+          <span className="glow">AUTHORIZED PERSONNEL ONLY</span>
+        </p>
       </footer>
-
-      <style jsx global>{`
-        @keyframes scanline {
-          0% {
-            transform: translateY(0);
-          }
-          100% {
-            transform: translateY(100%);
-          }
-        }
-        .scanlines::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 2px;
-          background-color: rgba(0, 255, 0, 0.3);
-          animation: scanline 6s linear infinite;
-          pointer-events: none;
-        }
-        .glow {
-          text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00;
-        }
-      `}</style>
     </div>
   );
 }

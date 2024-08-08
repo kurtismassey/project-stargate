@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import QRCode from "qrcode.react";
 import io from "socket.io-client";
@@ -8,29 +8,6 @@ import { gsap } from "gsap";
 import { VT323 } from "next/font/google";
 
 const vt323 = VT323({ subsets: ["latin"], weight: "400" });
-
-const AgedPaperBackground = ({ width, height }) => {
-  return (
-    <div className="absolute inset-0">
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <filter id="paper-texture">
-          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise" />
-          <feDiffuseLighting in="noise" lightingColor="#f5e5c0" surfaceScale="2">
-            <feDistantLight azimuth="45" elevation="60" />
-          </feDiffuseLighting>
-        </filter>
-        <rect width="100%" height="100%" filter="url(#paper-texture)" />
-        <rect width="100%" height="100%" fill="rgba(245, 229, 192, 0.7)" />
-      </svg>
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-amber-100/30" />
-    </div>
-  );
-};
 
 export default function SessionPage() {
   const params = useParams();
@@ -46,7 +23,31 @@ export default function SessionPage() {
   const chatWindowRef = useRef(null);
   const [includeSketch, setIncludeSketch] = useState(false);
   const cursorRef = useRef(null);
-  const loadingScreenRef = useRef(null);
+  const [currentDateTime, setCurrentDateTime] = useState("");
+  const [submitTimeout, setSubmitTimeout] = useState(null);
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      setCurrentDateTime(
+        now.toLocaleString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }),
+      );
+    };
+
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     gsap.to(cursorRef.current, {
@@ -55,12 +56,6 @@ export default function SessionPage() {
       yoyo: true,
       duration: 0.7,
     });
-
-    const tl = gsap.timeline();
-    tl.to(loadingScreenRef.current, { opacity: 0, duration: 0.5 }).to(
-      loadingScreenRef.current,
-      { display: "none" },
-    );
   }, []);
 
   useEffect(() => {
@@ -95,7 +90,11 @@ export default function SessionPage() {
       if (response.sessionId === sessionId) {
         setMessages((prevMessages) => {
           const lastMessage = prevMessages[prevMessages.length - 1];
-          if (lastMessage && lastMessage.user === "Monitor" && !lastMessage.isComplete) {
+          if (
+            lastMessage &&
+            lastMessage.user === "Monitor" &&
+            !lastMessage.isComplete
+          ) {
             const updatedMessages = [
               ...prevMessages.slice(0, -1),
               {
@@ -119,9 +118,55 @@ export default function SessionPage() {
     };
   }, [sessionId]);
 
+  const submitMessage = useCallback(() => {
+    if (inputValue.trim()) {
+      const newMessage = { user: "Viewer", text: inputValue.trim() };
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+    }
+
+    if (includeSketch) {
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+
+      const tempCanvas = document.createElement("canvas");
+      const tempContext = tempCanvas.getContext("2d");
+
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+
+      tempContext.setTransform(context.getTransform());
+
+      tempContext.fillStyle = "#EBE7D0";
+      tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+      tempContext.drawImage(canvas, 0, 0);
+
+      tempCanvas.toBlob((blob) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const arrayBuffer = reader.result;
+
+          socketRef.current.emit("sketchAndChat", {
+            message: inputValue.trim(),
+            sketchArrayBuffer: arrayBuffer,
+            sessionId,
+          });
+        };
+        reader.readAsArrayBuffer(blob);
+      }, "image/jpeg");
+    } else {
+      socketRef.current.emit("chatOnly", {
+        message: inputValue.trim(),
+        sessionId,
+      });
+    }
+
+    setInputValue("");
+  }, [inputValue, includeSketch, sessionId]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
+    canvas.style.backgroundColor = "#EBE7D0";
 
     const startDrawing = (e) => {
       setIsDrawing(true);
@@ -132,15 +177,27 @@ export default function SessionPage() {
     const stopDrawing = () => {
       setIsDrawing(false);
       lastPointRef.current = null;
+
+      if (includeSketch) {
+        if (submitTimeout) clearTimeout(submitTimeout);
+        setSubmitTimeout(
+          setTimeout(() => {
+            submitMessage();
+          }, 1500),
+        );
+      }
     };
 
     const draw = (e) => {
       if (!isDrawing) return;
 
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
 
+      const context = canvas.getContext("2d");
       context.lineWidth = 2;
       context.lineCap = "round";
       context.strokeStyle = penColor;
@@ -175,7 +232,32 @@ export default function SessionPage() {
       canvas.removeEventListener("mouseup", stopDrawing);
       canvas.removeEventListener("mouseout", stopDrawing);
     };
-  }, [isDrawing, penColor, sessionId]);
+  }, [
+    isDrawing,
+    penColor,
+    sessionId,
+    includeSketch,
+    submitTimeout,
+    submitMessage,
+  ]);
+
+  useEffect(() => {
+    textareaRef.current.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (document.activeElement !== textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, []);
 
   const drawReceivedStroke = (data) => {
     const canvas = canvasRef.current;
@@ -200,37 +282,6 @@ export default function SessionPage() {
     socketRef.current.emit("clear", { sessionId });
   };
 
-  const submitMessage = () => {
-    if (inputValue.trim()) {
-      const newMessage = { user: "Viewer", text: inputValue.trim() };
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
-
-      if (includeSketch) {
-        const canvas = canvasRef.current;
-        canvas.toBlob((blob) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const arrayBuffer = reader.result;
-
-            socketRef.current.emit("sketchAndChat", {
-              message: inputValue.trim(),
-              sketchArrayBuffer: arrayBuffer,
-              sessionId,
-            });
-          };
-          reader.readAsArrayBuffer(blob);
-        }, "image/jpeg");
-      } else {
-        socketRef.current.emit("chatOnly", {
-          message: inputValue.trim(),
-          sessionId,
-        });
-      }
-
-      setInputValue("");
-    }
-  };
-
   useEffect(() => {
     chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
   }, [messages]);
@@ -242,37 +293,57 @@ export default function SessionPage() {
     setMobileUrl(mobileUrl);
   }, [sessionId]);
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submitMessage();
+    }
+  };
+
   return (
-    <div className={`flex flex-col min-h-screen bg-black text-green-500 ${vt323.className}`}>
-      <div
-        ref={loadingScreenRef}
-        className="absolute inset-0 bg-black flex items-center justify-center z-50"
-      >
-        <div className="text-4xl text-green-500 animate-pulse glow">
-          INITIALIZING PROJECT STARGATE...
-        </div>
+    <div
+      className={`flex flex-col h-screen bg-opacity-50 text-green-500 ${vt323.className}`}
+    >
+      <div className="py-5 w-full flex justify-center items-center space-x-4">
+        <span className="text-sm">Scan to join on mobile</span>
+        <QRCode
+          value={mobileUrl}
+          size={100}
+          fgColor="black"
+          bgColor="#efebe0"
+        />
       </div>
 
-      <header className="bg-green-900 bg-opacity-20 p-4 border-b-2 border-green-500">
-        <h1 className="text-3xl font-bold glow">PROJECT STARGATE: REMOTE VIEWING SESSION</h1>
-      </header>
-
-      <main className="flex-grow flex flex-col items-center p-4 scanlines">
-        <div className="mb-4 bg-green-500 p-2 rounded">
-          <QRCode value={mobileUrl} size={128} fgColor="#000000" bgColor="#00FF00" />
-        </div>
-        <p className="text-xl mb-8 glow">Scan QR code to join session on mobile device.</p>
-
-        <div className="w-full max-w-4xl">
-          <div className="flex justify-between items-center mb-4">
+      <main className="flex-grow flex p-4 space-x-4">
+        <div className="flex-1 flex flex-col">
+          <div className="relative flex-grow mb-4 border-4 border-green-500 rounded-lg overflow-hidden">
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={600}
+              className="absolute top-0 left-0 w-full h-full"
+            />
+            <div
+              className="absolute top-2 left-2 text-xs"
+              style={{
+                color: "black",
+              }}
+            >
+              {currentDateTime}
+            </div>
             <button
               onClick={clearCanvas}
-              className="bg-red-700 hover:bg-red-900 text-white font-bold py-2 px-4 rounded glow"
+              className="absolute top-2 right-2 font-bold py-1 px-2 rounded text-sm"
+              style={{
+                color: "black",
+              }}
             >
-              CLEAR VISION
+              CLEAR SKETCH
             </button>
-            <div>
-              <label className="mr-2">INK:</label>
+            <div className="flex absolute bottom-2 right-2">
+              <p className="mr-2 text-bold" style={{ color: "black" }}>
+                INK
+              </p>
               <input
                 type="color"
                 value={penColor}
@@ -281,102 +352,80 @@ export default function SessionPage() {
               />
             </div>
           </div>
+        </div>
 
-          <div className="relative">
-            <AgedPaperBackground width={800} height={400} />
-            <canvas
-              ref={canvasRef}
-              width={800}
-              height={400}
-              className="border-4 border-green-500 rounded-lg scanlines"
-              style={{ position: 'relative', zIndex: 1 }}
-            ></canvas>
+        <div className="w-1/3 flex flex-col">
+          <div
+            ref={chatWindowRef}
+            className="h-[525px] overflow-y-auto scanlines bg-green-900 bg-opacity-20 p-4 rounded-lg border-2 border-green-500 mb-4"
+          >
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`mb-2 ${message.user === "Monitor" ? "text-yellow-400" : "text-green-500"} glow`}
+              >
+                <strong>[{message.user}]:</strong> {message.text}
+              </div>
+            ))}
           </div>
 
-          <div className="mt-4 relative">
+          <div className="relative">
             <textarea
+              ref={textareaRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="w-full p-2 border-2 border-green-500 rounded placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              onKeyDown={handleKeyDown}
+              className="w-full scanlines p-2 border-2 border-green-500 rounded text-green-500 placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
               rows="3"
               placeholder="Describe your vision..."
               style={{
                 backgroundColor: "black",
-                color: "green",
-                placeholderColor: "green",
               }}
             ></textarea>
             <span
               ref={cursorRef}
-              className="absolute left-3 bottom-3 text-green-500 z-20"
+              className="absolute left-3 top-3 text-green-500 pointer-events-none"
             >
               _
             </span>
 
-            <div className="flex items-center mt-2">
-              <input
-                type="checkbox"
-                checked={includeSketch}
-                onChange={(e) => setIncludeSketch(e.target.checked)}
-                id="includeSketch"
-                className="mr-2"
-              />
-              <label htmlFor="includeSketch" className="text-green-500 glow">Include psychic sketch with transmission</label>
+            <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={includeSketch}
+                  onChange={(e) => setIncludeSketch(e.target.checked)}
+                  id="includeSketch"
+                  className="mr-2"
+                />
+                <label
+                  htmlFor="includeSketch"
+                  className="text-green-500 glow text-sm"
+                >
+                  Include psychic sketch
+                </label>
+              </div>
+              <button
+                onClick={submitMessage}
+                className="bg-green-700 hover:bg-green-900 text-white font-bold py-2 px-4 rounded glow"
+              >
+                TRANSMIT
+              </button>
             </div>
-
-            <button
-              onClick={submitMessage}
-              className="bg-green-700 hover:bg-green-900 text-white font-bold py-2 px-4 rounded mt-2 glow"
-            >
-              TRANSMIT
-            </button>
           </div>
         </div>
-
-        <div
-          className="w-full max-w-4xl mt-8 h-64 overflow-y-auto bg-green-900 bg-opacity-20 p-4 rounded-lg border-2 border-green-500 scanlines"
-          ref={chatWindowRef}
-        >
-          {messages.map((message, index) => (
-            <div key={index} className={`mb-2 ${message.user === "Monitor" ? "text-yellow-400" : "text-green-500"} glow`}>
-              <strong>[{message.user}]:</strong> {message.text}
-            </div>
-          ))}
-        </div>
-
-        <Link href="/" className="text-blue-400 mt-8 hover:text-blue-600 glow">
-          RETURN TO COMMAND CENTER
-        </Link>
       </main>
 
       <footer className="bg-green-900 bg-opacity-20 p-4 text-center border-t-2 border-green-500">
-        <p className="glow">TOP SECRET: PROJECT STARGATE - AUTHORIZED PERSONNEL ONLY</p>
+        <Link href="/" className="text-blue-400 hover:text-blue-600 glow">
+          RETURN TO COMMAND CENTER
+        </Link>
+        <p className="mt-2 text-sm">
+          <span className="glow">SECRET: PROJECT STARGATE</span> -{" "}
+          <span className="font-bold">WEB</span> -{" "}
+          <span className="glow">AUTHORIZED PERSONNEL ONLY</span>
+        </p>
       </footer>
-
-      <style jsx global>{`
-        @keyframes scanline {
-          0% {
-            transform: translateY(0);
-          }
-          100% {
-            transform: translateY(100%);
-          }
-        }
-        .scanlines::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 2px;
-          background-color: rgba(0, 255, 0, 0.3);
-          animation: scanline 6s linear infinite;
-          pointer-events: none;
-        }
-        .glow {
-          text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00;
-        }
-      `}</style>
     </div>
   );
 }

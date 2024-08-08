@@ -54,6 +54,10 @@ export default function Header() {
     }
   };
 
+  if (pathname.includes("mobile")) {
+    return null;
+  }
+
   return (
     <>
       {!user ? null : (
