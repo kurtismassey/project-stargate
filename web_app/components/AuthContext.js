@@ -36,7 +36,6 @@ export default function AuthProvider({ children }) {
         if (event.data.type === "REDIRECT") {
           router.push(event.data.url);
         }
-        router.refresh();
       });
     }
 
