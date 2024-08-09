@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node build-firebase-config.js && next dev",
-    "build": "next build",
+    "build": "node build-firebase-config.js && next build",
     "start": "next start",
     "lint": "npx prettier . --write && next lint",
     "gcp-build": ""
