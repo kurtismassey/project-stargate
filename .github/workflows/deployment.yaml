@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build-push-deploy:
+  deploy-frontend:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -51,3 +51,38 @@ jobs:
                   --region="us-central1" \
                   --allow-unauthenticated \
                   --port=3000 \
+
+  deploy-websocket:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - id: auth
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Docker auth
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build and push Docker image
+        run: |
+          cd websocket
+          docker build -t project-stargate-websocket .
+          docker tag project-stargate-websocket us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}
+          docker push us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "project-stargate-websocket" \
+                  --image "us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}" \
+                  --region="us-central1" \
+                  --allow-unauthenticated \
+                  --port=8000 \
+                  --set-env-vars GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}  \

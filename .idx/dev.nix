@@ -7,6 +7,8 @@
     pkgs.yarn
     pkgs.nodePackages.pnpm
     pkgs.bun
+    pkgs.python312
+    pkgs.poetry
   ];
   env = {};
   idx = {

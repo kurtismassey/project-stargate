@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "project-stargate-websocket"
+version = "0.1.0"
+description = "FastAPI WebSocket for Project Stargate"
+authors = ["Kurtis Massey <55586356+kurtismassey@users.noreply.github.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "^0.105.0"
+uvicorn = "^0.24.0"
+websockets = "^12.0"
+python-dotenv = "^1.0.0"
+google-generativeai = "^0.7.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
