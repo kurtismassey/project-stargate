@@ -1,4 +1,4 @@
 *node_modules*
 *.env
 *.next/
-*firebase-config.js
+web_app/public/firebase-config.js
