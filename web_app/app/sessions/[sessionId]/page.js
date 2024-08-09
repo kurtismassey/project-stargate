@@ -6,10 +6,24 @@ import io from "socket.io-client";
 import Link from "next/link";
 import { gsap } from "gsap";
 import { VT323 } from "next/font/google";
+import { db } from "@/firebase/clientApp";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  getDoc,
+  setDoc,
+  doc,
+} from "firebase/firestore";
+import { useUserAuth } from "@/components/AuthContext";
 
 const vt323 = VT323({ subsets: ["latin"], weight: "400" });
 
 export default function SessionPage() {
+  const { user, loading } = useUserAuth();
   const params = useParams();
   const sessionId = params.sessionId;
   const [isDrawing, setIsDrawing] = useState(false);
@@ -26,6 +40,7 @@ export default function SessionPage() {
   const [currentDateTime, setCurrentDateTime] = useState("");
   const [submitTimeout, setSubmitTimeout] = useState(null);
   const textareaRef = useRef(null);
+  const [streamingMessage, setStreamingMessage] = useState(null);
 
   useEffect(() => {
     const updateDateTime = () => {
@@ -59,7 +74,33 @@ export default function SessionPage() {
   }, []);
 
   useEffect(() => {
-    socketRef.current = io("websockets-cw7oz6cjmq-uc.a.run.app", {
+    const drawReceivedStroke = (data) => {
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+      context.lineWidth = 2;
+      context.lineCap = "round";
+      context.strokeStyle = data.color;
+
+      const prevX = data.prevX * canvas.width;
+      const prevY = data.prevY * canvas.height;
+      const x = data.x * canvas.width;
+      const y = data.y * canvas.height;
+
+      context.beginPath();
+      context.moveTo(prevX, prevY);
+      context.lineTo(x, y);
+      context.stroke();
+
+      setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
+        prevX: data.prevX,
+        prevY: data.prevY,
+        x: data.x,
+        y: data.y,
+        color: data.color,
+      });
+    };
+
+    socketRef.current = io("wss://websockets-cw7oz6cjmq-uc.a.run.app", {
       path: "/api/socket",
       transports: ["websocket"],
       reconnectionAttempts: 5,
@@ -84,88 +125,155 @@ export default function SessionPage() {
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d");
       context.clearRect(0, 0, canvas.width, canvas.height);
+      setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
+        sketch: null,
+      });
     });
 
     socketRef.current.on("geminiStreamResponse", (response) => {
-      if (response.sessionId === sessionId) {
-        setMessages((prevMessages) => {
-          const lastMessage = prevMessages[prevMessages.length - 1];
-          if (
-            lastMessage &&
-            lastMessage.user === "Monitor" &&
-            !lastMessage.isComplete
-          ) {
-            const updatedMessages = [
-              ...prevMessages.slice(0, -1),
-              {
-                ...lastMessage,
-                text: lastMessage.text + response.text,
-                isComplete: response.isComplete,
-              },
-            ];
-            return updatedMessages;
-          } else {
-            return [...prevMessages, response];
+      setStreamingMessage((prevMessage) => {
+        if (!prevMessage || prevMessage.user !== response.user) {
+          return {
+            id: `${Date.now()}-${Math.random()}`,
+            user: response.user,
+            text: response.text,
+            timestamp: new Date(),
+            isComplete: response.isComplete,
+          };
+        } else {
+          const updatedMessage = {
+            ...prevMessage,
+            text: prevMessage.text + response.text,
+            isComplete: response.isComplete,
+          };
+
+          if (response.isComplete) {
+            setMessages((prevMessages) => {
+              const newMessages = [...prevMessages];
+              if (!newMessages.some((msg) => msg.id === updatedMessage.id)) {
+                newMessages.push(updatedMessage);
+              }
+              return newMessages.sort(
+                (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+              );
+            });
+            addDoc(collection(db, "sessions", sessionId, "messages"), {
+              ...updatedMessage,
+              timestamp: new Date(),
+            });
+            return null;
           }
-        });
-      }
+
+          return updatedMessage;
+        }
+      });
     });
 
     return () => {
+      socketRef.current.disconnect();
       socketRef.current.off("draw");
       socketRef.current.off("clear");
       socketRef.current.off("geminiStreamResponse");
     };
   }, [sessionId]);
 
-  const submitMessage = useCallback(() => {
+  const arrayBufferToBase64 = (arrayBuffer) => {
+    const base64 = btoa(
+      new Uint8Array(arrayBuffer).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        "",
+      ),
+    );
+    return base64;
+  };
+
+  const base64ToBlob = (base64, contentType) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: contentType });
+  };
+
+  const submitMessage = useCallback(async () => {
     if (inputValue.trim()) {
-      const newMessage = { user: "Viewer", text: inputValue.trim() };
+      const newMessage = {
+        id: `${Date.now()}-${Math.random()}`,
+        user: "Viewer",
+        text: inputValue.trim(),
+        timestamp: new Date(),
+      };
       setMessages((prevMessages) => [...prevMessages, newMessage]);
+      await addDoc(
+        collection(db, "sessions", sessionId, "messages"),
+        newMessage,
+      );
+
+      if (includeSketch) {
+        const canvas = canvasRef.current;
+        const context = canvas.getContext("2d");
+
+        const tempCanvas = document.createElement("canvas");
+        const tempContext = tempCanvas.getContext("2d");
+
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+
+        tempContext.setTransform(context.getTransform());
+
+        tempContext.fillStyle = "#EBE7D0";
+        tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        tempContext.drawImage(canvas, 0, 0);
+
+        tempCanvas.toBlob(async (blob) => {
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const arrayBuffer = reader.result;
+            const base64String = arrayBufferToBase64(arrayBuffer);
+
+            await setDoc(
+              doc(db, "sessions", sessionId, "metadata", "drawing"),
+              {
+                message: inputValue.trim(),
+                sketch: base64String,
+              },
+            );
+
+            socketRef.current.emit("sketchAndChat", {
+              message: inputValue.trim(),
+              sketchArrayBuffer: arrayBuffer,
+              sessionId,
+            });
+
+            const blobUrl = URL.createObjectURL(blob);
+            const img = new Image();
+            img.src = blobUrl;
+            img.onload = () => {
+              URL.revokeObjectURL(blobUrl);
+            };
+          };
+          reader.readAsArrayBuffer(blob);
+        }, "image/jpeg");
+      } else {
+        socketRef.current.emit("chatOnly", {
+          message: inputValue.trim(),
+          sessionId,
+        });
+      }
+
+      setInputValue("");
     }
-
-    if (includeSketch) {
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
-
-      const tempCanvas = document.createElement("canvas");
-      const tempContext = tempCanvas.getContext("2d");
-
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-
-      tempContext.setTransform(context.getTransform());
-
-      tempContext.fillStyle = "#EBE7D0";
-      tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
-      tempContext.drawImage(canvas, 0, 0);
-
-      tempCanvas.toBlob((blob) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const arrayBuffer = reader.result;
-
-          socketRef.current.emit("sketchAndChat", {
-            message: inputValue.trim(),
-            sketchArrayBuffer: arrayBuffer,
-            sessionId,
-          });
-        };
-        reader.readAsArrayBuffer(blob);
-      }, "image/jpeg");
-    } else {
-      socketRef.current.emit("chatOnly", {
-        message: inputValue.trim(),
-        sessionId,
-      });
-    }
-
-    setInputValue("");
   }, [inputValue, includeSketch, sessionId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+
+    if (!canvas || !context) return;
+
     canvas.style.backgroundColor = "#EBE7D0";
 
     const startDrawing = (e) => {
@@ -197,7 +305,7 @@ export default function SessionPage() {
       const x = (e.clientX - rect.left) * scaleX;
       const y = (e.clientY - rect.top) * scaleY;
 
-      const context = canvas.getContext("2d");
+      context.globalCompositeOperation = "source-over";
       context.lineWidth = 2;
       context.lineCap = "round";
       context.strokeStyle = penColor;
@@ -231,60 +339,105 @@ export default function SessionPage() {
       canvas.removeEventListener("mousemove", draw);
       canvas.removeEventListener("mouseup", stopDrawing);
       canvas.removeEventListener("mouseout", stopDrawing);
+
+      if (submitTimeout) clearTimeout(submitTimeout);
     };
   }, [
     isDrawing,
     penColor,
-    sessionId,
     includeSketch,
-    submitTimeout,
     submitMessage,
+    submitTimeout,
+    sessionId,
   ]);
 
-  useEffect(() => {
-    textareaRef.current.focus();
-  }, []);
+  const clearCanvas = async () => {
+    socketRef.current.emit("clear", { sessionId });
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    await setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
+      sketch: null,
+    });
+  };
 
   useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
-      if (document.activeElement !== textareaRef.current) {
-        textareaRef.current.focus();
+    const q = query(
+      collection(db, "sessions", sessionId, "messages"),
+      orderBy("timestamp"),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setMessages((prevMessages) => {
+        const fetchedMessages = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp:
+            doc.data().timestamp instanceof Date
+              ? doc.data().timestamp
+              : doc.data().timestamp.toDate(),
+        }));
+
+        const messageMap = new Map();
+        [...prevMessages, ...fetchedMessages].forEach((msg) =>
+          messageMap.set(msg.id, msg),
+        );
+
+        const mergedMessages = Array.from(messageMap.values()).sort(
+          (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+        );
+
+        return mergedMessages;
+      });
+
+      if (chatWindowRef.current) {
+        chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
+      }
+    });
+
+    return unsubscribe;
+  }, [sessionId]);
+
+  useEffect(() => {
+    const fetchSketch = async () => {
+      try {
+        const sketchDoc = await getDoc(
+          doc(db, "sessions", sessionId, "metadata", "drawing"),
+        );
+
+        if (sketchDoc.exists()) {
+          const data = sketchDoc.data();
+          if (data && data.sketch) {
+            const blob = base64ToBlob(data.sketch, "image/jpeg");
+            const url = URL.createObjectURL(blob);
+
+            const img = new Image();
+            img.src = url;
+            img.onload = () => {
+              const canvas = canvasRef.current;
+              const context = canvas.getContext("2d");
+              context.clearRect(0, 0, canvas.width, canvas.height);
+              context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+              URL.revokeObjectURL(url);
+            };
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching sketch:", error);
       }
     };
 
-    window.addEventListener("keydown", handleGlobalKeyDown);
+    fetchSketch();
 
     return () => {
-      window.removeEventListener("keydown", handleGlobalKeyDown);
+      const blobUrls = document.querySelectorAll("[data-blob-url]");
+      blobUrls.forEach((el) => {
+        URL.revokeObjectURL(el.getAttribute("data-blob-url"));
+        el.removeAttribute("data-blob-url");
+      });
     };
-  }, []);
-
-  const drawReceivedStroke = (data) => {
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-
-    context.lineWidth = 2;
-    context.lineCap = "round";
-    context.strokeStyle = data.color;
-
-    const prevX = data.prevX * canvas.width;
-    const prevY = data.prevY * canvas.height;
-    const x = data.x * canvas.width;
-    const y = data.y * canvas.height;
-
-    context.beginPath();
-    context.moveTo(prevX, prevY);
-    context.lineTo(x, y);
-    context.stroke();
-  };
-
-  const clearCanvas = () => {
-    socketRef.current.emit("clear", { sessionId });
-  };
-
-  useEffect(() => {
-    chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
-  }, [messages]);
+  }, [sessionId]);
 
   useEffect(() => {
     const protocol = window.location.protocol;
@@ -325,18 +478,14 @@ export default function SessionPage() {
             />
             <div
               className="absolute top-2 left-2 text-xs"
-              style={{
-                color: "black",
-              }}
+              style={{ color: "black" }}
             >
               {currentDateTime}
             </div>
             <button
               onClick={clearCanvas}
               className="absolute top-2 right-2 font-bold py-1 px-2 rounded text-sm"
-              style={{
-                color: "black",
-              }}
+              style={{ color: "black" }}
             >
               CLEAR SKETCH
             </button>
@@ -359,14 +508,23 @@ export default function SessionPage() {
             ref={chatWindowRef}
             className="h-[525px] overflow-y-auto scanlines bg-green-900 bg-opacity-20 p-4 rounded-lg border-2 border-green-500 mb-4"
           >
-            {messages.map((message, index) => (
+            {messages.map((message) => (
               <div
-                key={index}
+                key={`message-${message.id}`}
                 className={`mb-2 ${message.user === "Monitor" ? "text-yellow-400" : "text-green-500"} glow`}
               >
                 <strong>[{message.user}]:</strong> {message.text}
               </div>
             ))}
+            {streamingMessage && (
+              <div
+                key={`streaming-${streamingMessage.id}`}
+                className={`mb-2 ${streamingMessage.user === "Monitor" ? "text-yellow-400" : "text-green-500"} glow`}
+              >
+                <strong>[{streamingMessage.user}]:</strong>{" "}
+                {streamingMessage.text}
+              </div>
+            )}
           </div>
 
           <div className="relative">
@@ -378,9 +536,7 @@ export default function SessionPage() {
               className="w-full scanlines p-2 border-2 border-green-500 rounded text-green-500 placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
               rows="3"
               placeholder="Describe your vision..."
-              style={{
-                backgroundColor: "black",
-              }}
+              style={{ backgroundColor: "black" }}
             ></textarea>
             <span
               ref={cursorRef}
@@ -388,7 +544,6 @@ export default function SessionPage() {
             >
               _
             </span>
-
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center">
                 <input
