@@ -73,7 +73,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          cd websocket
+          cd websockets
           docker build -t project-stargate-websocket .
           docker tag project-stargate-websocket us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}
           docker push us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}
