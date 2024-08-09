@@ -38,7 +38,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("chatOnly", async (data) => {
-    const { message, sessionId } = data;
+    const { message, sessionId, conversationHistory } = data;
     let viewerId = "#123";
 
     try {
@@ -48,7 +48,17 @@ io.on("connection", (socket) => {
         systemInstruction: `You are a project monitor for Project Stargate, your assigned viewer is Viewer ${viewerId}. Use this to refer to them in any responses. You will guide the user through their remote viewing experience, you must be impartial and not lead the viewer in the conversation unless to gather further information.`,
       });
 
-      const result = await model.generateContentStream(message);
+      const chatHistory = conversationHistory.map(msg => ({
+        role: msg.user === "Viewer" ? "user" : "model",
+        parts: [{ text: msg.text }],
+      }));
+
+      const result = await model.generateContentStream({
+        contents: [
+          ...chatHistory,
+          { role: "user", parts: [{ text: message }] },
+        ],
+      });
 
       let fullResponse = "";
       for await (const chunk of result.stream) {
@@ -80,7 +90,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("sketchAndChat", async (data) => {
-    const { message, sketchArrayBuffer, sessionId } = data;
+    const { message, sketchArrayBuffer, sessionId, conversationHistory } = data;
     let viewerId = "#123";
   
     try {
@@ -99,16 +109,29 @@ io.on("connection", (socket) => {
         model: "gemini-1.5-pro",
         systemInstruction: `You are a project monitor for Project Stargate, your assigned viewer is Viewer ${viewerId}. Use this to refer to them in any responses. You will guide the user through their remote viewing experience, you must be impartial and not lead the viewer in the conversation unless to gather further information. Analyze the provided sketch in your responses, commenting on what you perceive in the viewers sketch.`,
       });
+
+      const chatHistory = conversationHistory.map(msg => ({
+        role: msg.user === "Viewer" ? "user" : "model",
+        parts: [{ text: msg.text }],
+      }));
   
-      const result = await model.generateContentStream([
-        message,
-        {
-          fileData: {
-            fileUri: uploadResult.file.uri,
-            mimeType: uploadResult.file.mimeType,
+      const result = await model.generateContentStream({
+        contents: [
+          ...chatHistory,
+          {
+            role: "user",
+            parts: [
+              { text: message },
+              {
+                inlineData: {
+                  mimeType: uploadResult.file.mimeType,
+                  data: fs.readFileSync(tempFilePath, { encoding: 'base64' }),
+                },
+              },
+            ],
           },
-        },
-      ]);
+        ],
+      });
   
       let fullResponse = "";
       for await (const chunk of result.stream) {

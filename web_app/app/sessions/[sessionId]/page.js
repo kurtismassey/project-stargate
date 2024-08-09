@@ -215,6 +215,11 @@ export default function SessionPage() {
         newMessage,
       );
 
+      const conversationHistory = [...messages, newMessage].map((msg) => ({
+        user: msg.user,
+        text: msg.text,
+      }));
+
       if (includeSketch) {
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
@@ -251,6 +256,7 @@ export default function SessionPage() {
                 message: inputValue.trim(),
                 sketchArrayBuffer: arrayBuffer,
                 sessionId,
+                conversationHistory,
               });
 
               const blobUrl = URL.createObjectURL(blob);
@@ -267,12 +273,13 @@ export default function SessionPage() {
         socketRef.current.emit("chatOnly", {
           message: inputValue.trim(),
           sessionId,
+          conversationHistory,
         });
       }
 
       setInputValue("");
     }
-  }, [inputValue, includeSketch, sessionId]);
+  }, [inputValue, includeSketch, sessionId, messages]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
