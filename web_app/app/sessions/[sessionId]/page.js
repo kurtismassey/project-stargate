@@ -77,27 +77,29 @@ export default function SessionPage() {
     const drawReceivedStroke = (data) => {
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d");
-      context.lineWidth = 2;
-      context.lineCap = "round";
-      context.strokeStyle = data.color;
+      if (context) {
+        context.lineWidth = 2;
+        context.lineCap = "round";
+        context.strokeStyle = data.color;
 
-      const prevX = data.prevX * canvas.width;
-      const prevY = data.prevY * canvas.height;
-      const x = data.x * canvas.width;
-      const y = data.y * canvas.height;
+        const prevX = data.prevX * canvas.width;
+        const prevY = data.prevY * canvas.height;
+        const x = data.x * canvas.width;
+        const y = data.y * canvas.height;
 
-      context.beginPath();
-      context.moveTo(prevX, prevY);
-      context.lineTo(x, y);
-      context.stroke();
+        context.beginPath();
+        context.moveTo(prevX, prevY);
+        context.lineTo(x, y);
+        context.stroke();
 
-      setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
-        prevX: data.prevX,
-        prevY: data.prevY,
-        x: data.x,
-        y: data.y,
-        color: data.color,
-      });
+        setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
+          prevX: data.prevX,
+          prevY: data.prevY,
+          x: data.x,
+          y: data.y,
+          color: data.color,
+        });
+      }
     };
 
     socketRef.current = io("wss://websockets-cw7oz6cjmq-uc.a.run.app", {
@@ -124,10 +126,12 @@ export default function SessionPage() {
     socketRef.current.on("clear", () => {
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d");
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
-        sketch: null,
-      });
+      if (context) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
+          sketch: null,
+        });
+      }
     });
 
     socketRef.current.on("geminiStreamResponse", (response) => {
@@ -215,48 +219,50 @@ export default function SessionPage() {
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
 
-        const tempCanvas = document.createElement("canvas");
-        const tempContext = tempCanvas.getContext("2d");
+        if (context) {
+          const tempCanvas = document.createElement("canvas");
+          const tempContext = tempCanvas.getContext("2d");
 
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
+          tempCanvas.width = canvas.width;
+          tempCanvas.height = canvas.height;
 
-        tempContext.setTransform(context.getTransform());
+          tempContext.setTransform(context.getTransform());
 
-        tempContext.fillStyle = "#EBE7D0";
-        tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+          tempContext.fillStyle = "#EBE7D0";
+          tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-        tempContext.drawImage(canvas, 0, 0);
+          tempContext.drawImage(canvas, 0, 0);
 
-        tempCanvas.toBlob(async (blob) => {
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            const arrayBuffer = reader.result;
-            const base64String = arrayBufferToBase64(arrayBuffer);
+          tempCanvas.toBlob(async (blob) => {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+              const arrayBuffer = reader.result;
+              const base64String = arrayBufferToBase64(arrayBuffer);
 
-            await setDoc(
-              doc(db, "sessions", sessionId, "metadata", "drawing"),
-              {
+              await setDoc(
+                doc(db, "sessions", sessionId, "metadata", "drawing"),
+                {
+                  message: inputValue.trim(),
+                  sketch: base64String,
+                },
+              );
+
+              socketRef.current.emit("sketchAndChat", {
                 message: inputValue.trim(),
-                sketch: base64String,
-              },
-            );
+                sketchArrayBuffer: arrayBuffer,
+                sessionId,
+              });
 
-            socketRef.current.emit("sketchAndChat", {
-              message: inputValue.trim(),
-              sketchArrayBuffer: arrayBuffer,
-              sessionId,
-            });
-
-            const blobUrl = URL.createObjectURL(blob);
-            const img = new Image();
-            img.src = blobUrl;
-            img.onload = () => {
-              URL.revokeObjectURL(blobUrl);
+              const blobUrl = URL.createObjectURL(blob);
+              const img = new Image();
+              img.src = blobUrl;
+              img.onload = () => {
+                URL.revokeObjectURL(blobUrl);
+              };
             };
-          };
-          reader.readAsArrayBuffer(blob);
-        }, "image/jpeg");
+            reader.readAsArrayBuffer(blob);
+          }, "image/jpeg");
+        }
       } else {
         socketRef.current.emit("chatOnly", {
           message: inputValue.trim(),
@@ -355,10 +361,12 @@ export default function SessionPage() {
     socketRef.current.emit("clear", { sessionId });
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    await setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
-      sketch: null,
-    });
+    if (context) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      await setDoc(doc(db, "sessions", sessionId, "metadata", "drawing"), {
+        sketch: null,
+      });
+    }
   };
 
   useEffect(() => {
@@ -416,10 +424,12 @@ export default function SessionPage() {
             img.onload = () => {
               const canvas = canvasRef.current;
               const context = canvas.getContext("2d");
-              context.clearRect(0, 0, canvas.width, canvas.height);
-              context.drawImage(img, 0, 0, canvas.width, canvas.height);
+              if (context) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-              URL.revokeObjectURL(url);
+                URL.revokeObjectURL(url);
+              }
             };
           }
         }

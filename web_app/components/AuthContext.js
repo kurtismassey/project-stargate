@@ -32,9 +32,14 @@ export default function AuthProvider({ children }) {
 
   useEffect(() => {
     if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.addEventListener("message", (event) => {
+      navigator.serviceWorker.addEventListener("message", async (event) => {
         if (event.data.type === "REDIRECT") {
-          router.push(event.data.url);
+          setLoading(true);
+          try {
+            router.push(event.data.url);
+          } finally {
+            setLoading(false);
+          }
         }
       });
     }
@@ -55,7 +60,11 @@ export default function AuthProvider({ children }) {
 
   const logOut = async () => {
     setLoading(true);
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } finally {
+      router.push("/login");
+    }
   };
 
   const authValue = {

@@ -1,16 +1,17 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import { useRef, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Anton } from "next/font/google";
-import gsap from "gsap";
-import Image from "next/image";
 import { useUserAuth } from "@/components/AuthContext";
+import Link from "next/link";
+import { Anton } from "next/font/google";
+import Image from "next/image";
+import gsap from "gsap";
 
 const anton = Anton({ weight: "400", subsets: ["latin"] });
 
 export default function Header() {
   const { user, loading, logOut } = useUserAuth();
+  const router = useRouter();
   const signOutButtonRef = useRef();
   const fillRef = useRef();
   const pathname = usePathname();
@@ -84,7 +85,10 @@ export default function Header() {
                   prefetch={false}
                   className="flex items-center justify-center px-3 py-1 rounded-[5px] border-2 border-cornsilk text-cornsilk relative overflow-hidden group"
                   href="/login"
-                  onClick={handleLogout}
+                  onClick={(e) => {
+                    e.preventDefault(); // Prevent default link behavior
+                    handleLogout(); // Call handleLogout directly
+                  }}
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
                 >

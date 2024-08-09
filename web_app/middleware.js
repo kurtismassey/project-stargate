@@ -7,7 +7,7 @@ export async function middleware(request) {
   const { firebaseServerApp, currentUser } = await getAuthenticatedAppForUser();
 
   if (!currentUser && PUBLIC_PATHS.includes(request.nextUrl.pathname)) {
-    return NextResponse.next({});
+    return NextResponse.next();
   }
 
   if (!currentUser) {
@@ -18,7 +18,7 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  return NextResponse.next({});
+  return NextResponse.next();
 }
 
 export const config = {
