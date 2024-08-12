@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "project-stargate-rag"
+version = "0.1.0"
+description = "RAG Set up for Project Stargate"
+authors = ["Kurtis Massey <55586356+kurtismassey@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.11.8"
+langchain = "^0.2.12"
+google-cloud-firestore = "^2.17.0"
+langchain-google-firestore = "^0.3.0"
+langchain-google-vertexai = "^1.0.8"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

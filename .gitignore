@@ -1,0 +1,6 @@
+*node_modules*
+.env
+*.next/
+web_app/public/firebase-config.js
+*__pycache__
+rag_prep/stargate_documents

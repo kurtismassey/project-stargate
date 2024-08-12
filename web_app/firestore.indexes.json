@@ -1,0 +1,15 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "timestamp", "mode": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "sketches",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "timestamp", "mode": "ASCENDING" }]
+    }
+  ],
+  "fieldOverrides": []
+}
