@@ -6,6 +6,10 @@ import base64
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from fastapi import WebSocket
 
+import random
+from google.cloud import storage
+from google.cloud import firestore
+
 from prompts.map import SESSION_SYSTEM_PROMPT, DETAIL_EXTRACTION_PROMPT
 from session_management import broadcast_to_session
 
@@ -38,11 +42,13 @@ async def process_chat(data: dict, session_id: str, chat_history, websocket: Web
             SystemMessage(content=SESSION_SYSTEM_PROMPT)
         ] + chat_history.messages
 
+        message_id = str(uuid.uuid4())
         full_response = ""
         for chunk in llm.stream(chat_history_messages):
             full_response += chunk.content
             await broadcast_to_session(session_id, {
                 "type": "geminiStreamResponse",
+                "id": message_id,
                 "text": chunk.content,
                 "user": "Monitor",
                 "isComplete": False
@@ -50,13 +56,14 @@ async def process_chat(data: dict, session_id: str, chat_history, websocket: Web
 
         await broadcast_to_session(session_id, {
             "type": "geminiStreamResponse",
+            "id": message_id,
             "isComplete": True
         })
 
         ai_message = AIMessage(
             content=full_response,
             additional_kwargs={
-                "id": str(uuid.uuid4()),
+                "id": message_id,
                 "timestamp": datetime.now(),
                 "user": "Monitor"
             }
@@ -105,11 +112,13 @@ async def process_sketch_and_chat(data: dict, session_id: str, chat_history, web
             {"type": "image_url", "image_url": sketch_base64} if sketch_base64 is not None else {}
         ])
 
+        message_id = str(uuid.uuid4())
         full_response = ""
         for chunk in llm.stream([combined_query]):
             full_response += chunk.content
             await broadcast_to_session(session_id, {
                 "type": "geminiStreamResponse",
+                "id": message_id,
                 "text": full_response,
                 "user": "Monitor",
                 "isComplete": False
@@ -117,6 +126,7 @@ async def process_sketch_and_chat(data: dict, session_id: str, chat_history, web
 
         await broadcast_to_session(session_id, {
             "type": "geminiStreamResponse",
+            "id": message_id,
             "isComplete": True,
             "text": full_response,
             "user": "Monitor"
@@ -135,7 +145,7 @@ async def process_sketch_and_chat(data: dict, session_id: str, chat_history, web
         ai_message = AIMessage(
             content=full_response,
             additional_kwargs={
-                "id": str(uuid.uuid4()),
+                "id": message_id,
                 "timestamp": datetime.now(),
                 "user": "Monitor"
             }
@@ -201,3 +211,43 @@ async def generate_target_image(session_id, details, conversation_history, image
     except Exception as e:
         print(f"Error generating image: {str(e)}")
         return None
+
+async def complete_session(session_id: str, llm):
+    print(session_id)
+    db = firestore.Client()
+    storage_client = storage.Client()
+
+    bucket = storage_client.bucket(process.env.STORAGE_BUCKET)
+    blobs = list(bucket.list_blobs(prefix='targets/'))
+    if blobs:
+        random_target = random.choice(blobs)
+        target_url = random_target.public_url
+
+        session_ref = db.collection('sessions').document(session_id)
+        session_ref.update({
+            'status': 'completed',
+            'completedAt': firestore.SERVER_TIMESTAMP,
+            'targetImageUrl': target_url
+        })
+
+        chat_history = FirestoreChatMessageHistory(
+            session_id=session_id, collection="RVSessionChats"
+        )
+        summary_prompt = f"Summarize the remote viewing session with ID {session_id}. Here's the chat history:\n\n"
+        for msg in chat_history.messages:
+            summary_prompt += f"{msg.additional_kwargs.get('user', 'Unknown')}: {msg.content}\n"
+        
+        summary_response = llm.invoke([HumanMessage(content=summary_prompt)])
+        summary = summary_response.content
+
+        session_ref.update({
+            'summary': summary
+        })
+
+        return {
+            'targetImageUrl': target_url,
+            'summary': summary,
+            'details': session_ref.get().to_dict().get('detailsList', [])
+        }
+    else:
+        raise ValueError("No target images found")

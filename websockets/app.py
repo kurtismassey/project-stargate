@@ -72,6 +72,20 @@ async def websocket_endpoint(websocket: WebSocket):
                     await process_chat(data, session_id, chat_history, websocket, llm)
                 case "sketchAndChat":
                     await process_sketch_and_chat(data, session_id, chat_history, websocket, llm, imagen_model)
+                case "completeSession":
+                    try:
+                        completion_data = await complete_session(session_id, llm)
+                        await broadcast_to_session(session_id, {
+                            "type": "sessionCompleted",
+                            "targetImageUrl": completion_data['targetImageUrl'],
+                            "summary": completion_data['summary'],
+                            "details": completion_data['details']
+                        })
+                    except Exception as e:
+                        await websocket.send_text(json.dumps({
+                            "type": "error",
+                            "message": f"Failed to complete session: {str(e)}"
+                        }))
     except WebSocketDisconnect:
         print("WebSocket disconnected")
     except Exception as error:
