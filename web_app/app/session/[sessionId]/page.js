@@ -49,6 +49,15 @@ export default function SessionPage() {
   const [wsReconnectCount, setWsReconnectCount] = useState(0);
   const [targetImageBase64, setTargetImageBase64] = useState(null);
   const [targetImages, setTargetImages] = useState([]);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
+  const [completionData, setCompletionData] = useState(null);
+
+  const handleCompleteSession = () => {
+      socketRef.current.send(JSON.stringify({
+        type: "completeSession",
+        sessionId: sessionId
+      }));
+  };
 
   useEffect(() => {
     const fetchSessionInfo = async () => {
@@ -63,30 +72,6 @@ export default function SessionPage() {
           }
         }
       });
-
-      const fetchLatestTargetImage = async () => {
-        const imagesRef = ref(storage, `sessions/${sessionId}/targetImages`);
-        try {
-          const result = await listAll(imagesRef);
-          if (result.items.length > 0) {
-            const latestImageRef = result.items[result.items.length - 1];
-            const url = await getDownloadURL(latestImageRef);
-            const response = await fetch(url);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64data = reader.result.split(',')[1];
-              setTargetImageBase64(base64data);
-            };
-            reader.readAsDataURL(blob);
-          }
-        } catch (error) {
-          console.error("Error fetching latest target image:", error);
-        }
-      };
-
-      fetchLatestTargetImage();
-
       return () => unsubscribe();
     };
 
@@ -337,8 +322,8 @@ export default function SessionPage() {
           if (data.currentStage) {
             setCurrentStage(data.currentStage);
           }
-          if (data.detailsList) {
-            setDetailsList(data.detailsList);
+          if (data.latestTargetImage) {
+            setTargetImageBase64(data.latestTargetImage);
           }
           break;
         case "draw":
@@ -367,6 +352,10 @@ export default function SessionPage() {
         case "updateTargetImage":
           setTargetImageBase64(data.imageBase64);
           saveTargetImageToStorage(data.imageBase64);
+          break;
+        case "sessionCompleted":
+          setIsSessionComplete(true);
+          setCompletionData(data);
           break;
       }
     };
@@ -440,6 +429,24 @@ export default function SessionPage() {
     }
   }, [detailsList, targetImages, saveSessionInfoToFirestore]);
 
+  if (isSessionComplete && completionData) {
+    return (
+      <div className="session-summary">
+        <h2>Session Summary</h2>
+        <img src={completionData.targetImageUrl} alt="Target" />
+        <h3>Details:</h3>
+        <ul>
+          {completionData.details.map((detail, index) => (
+            <li key={index}>{detail}</li>
+          ))}
+        </ul>
+        <h3>Summary:</h3>
+        <p>{completionData.summary}</p>
+      </div>
+    )
+  }
+
+
   return (
     <div
       className={`flex flex-col h-screen bg-opacity-50 text-green-500 ${vt323.className}`}
@@ -456,6 +463,13 @@ export default function SessionPage() {
             {STAGE_MAP[stageNumber]}
           </button>
         ))}
+        <button
+            onClick={handleCompleteSession}
+            className="px-4 py-2 rounded border border-white uppercase"
+            style={{ backgroundColor: "#ed1c23", color: "white"}}
+            >
+            Complete Session
+        </button>
       </div>
 
       <main className="flex-grow flex p-4 space-x-4 mt-5">

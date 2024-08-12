@@ -1,5 +1,8 @@
+import os
 import json
 from fastapi import WebSocket
+from google.cloud import storage
+import base64
 
 connected_clients = {}
 
@@ -31,8 +34,19 @@ async def handle_session_join(chat_history, websocket, session_id):
 
     current_stage = connected_clients.get(session_id, {}).get("stage", 1)
     
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(os.getenv("STORAGE_BUCKET"))
+    blobs = list(bucket.list_blobs(prefix=f'sessions/{session_id}/targetImages'))
+    
+    latest_image_base64 = None
+    if blobs:
+        latest_blob = max(blobs, key=lambda x: x.time_created)
+        image_bytes = latest_blob.download_as_bytes()
+        latest_image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+
     await websocket.send_text(json.dumps({
         "type": "initialHistory",
         "history": initial_history,
-        "currentStage": current_stage
+        "currentStage": current_stage,
+        "latestTargetImage": latest_image_base64
     }))
