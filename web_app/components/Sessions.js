@@ -77,7 +77,6 @@ export default function Sessions() {
                         session.createdAt?.toDate(),
                       ).toLocaleTimeString()}
                     </div>
-                    <div>Type: {session.type}</div>
                     <div className="absolute top-0 right-0 bg-red-500 text-white px-2 py-1 text-sm font-bold">
                       INCOMPLETE
                     </div>
