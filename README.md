@@ -42,3 +42,4 @@ Project Stargate AI is a working prototype built takes full advantage of the Goo
 ```bash
 make start-web-app
 ```
+Populate your .env with the example.env variables 
