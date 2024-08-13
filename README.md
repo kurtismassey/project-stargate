@@ -27,6 +27,10 @@ A key problem identified with the evaluation of remote viewing sessions is that 
 Project Stargate AI is a working prototype built takes full advantage of the Google ecosystem having so far been developed entirely within [Project IDX](https://idx.google.com/) supercharged by [Gemini](https://cloud.google.com/products/gemini/code-assist?hl=en). Deployed on Google Cloud Run, utilising Firebase Authentication and Firestore for session storage and as a vectorstore for retrieval augmented generation (RAG) of session helper and training content. A custom initial version of a [Firestore Record Manager](https://github.com/googleapis/langchain-google-firestore-python/pull/90) for use with [langchain document indexing](https://python.langchain.com/v0.1/docs/modules/data_connection/indexing/) has been developed for taking full advantage of Firestore in the RAG process. An integration with [Imagen 2](https://deepmind.google/technologies/imagen-2/) a text-to-image model allows modelling of the viewers target based on data extracted from sketch and text based chats using the multi modal [Gemini 1.5 Pro](https://ai.google.dev/gemini-api) model. &nbsp; 
 
 #### TO DO:
+- Perform evaluation and robust target feedback to viewer on session complete
+    - Flag succesful matches to target and note particular false impressions not present in the target
+    - Provide level of accuracy with penalties for false impressions
+    - Side by side comparison of modelled target with actual target
 - Align session stages better with RV protocol
 - Automate session routing and termination through AI Monitor barge
 - Integrate Google Maps API *(Places API)* for Coordinate RV
