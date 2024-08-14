@@ -2,6 +2,7 @@ import os
 import json
 from fastapi import WebSocket
 from google.cloud import storage
+from google.cloud import firestore
 import base64
 
 connected_clients = {}
@@ -32,21 +33,42 @@ async def handle_session_join(chat_history, websocket, session_id):
             "timestamp": message.additional_kwargs.get("timestamp")
         })
 
-    current_stage = connected_clients.get(session_id, {}).get("stage", 1)
+    db = firestore.Client()
+    session_ref = db.collection('sessions').document(session_id)
+    session_data = session_ref.get().to_dict()
+
+    current_stage = session_data.get('currentStage', 1)
+    status = session_data.get('status', 'incomplete')
     
     storage_client = storage.Client()
     bucket = storage_client.bucket(os.getenv("STORAGE_BUCKET"))
-    blobs = list(bucket.list_blobs(prefix=f'sessions/{session_id}/targetImages'))
     
     latest_image_base64 = None
-    if blobs:
-        latest_blob = max(blobs, key=lambda x: x.time_created)
-        image_bytes = latest_blob.download_as_bytes()
-        latest_image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+    target_image_path = None
+    summary = None
+    details = []
+
+    if status == 'completed':
+        target_image_path = session_data.get('targetImagePath')
+        summary = session_data.get('summary')
+        details = session_data.get('detailsList', {})
+    else:
+        blobs = list(bucket.list_blobs(prefix=f'sessions/{session_id}/targetModels'))
+        if blobs:
+            latest_blob = max(blobs, key=lambda x: x.time_created)
+            image_bytes = latest_blob.download_as_bytes()
+            latest_image_base64 = base64.b64encode(image_bytes).decode('utf-8')
 
     await websocket.send_text(json.dumps({
         "type": "initialHistory",
         "history": initial_history,
         "currentStage": current_stage,
-        "latestTargetImage": latest_image_base64
+        "status": status,
+        "detailsList": details,
+        "latestTargetImage": latest_image_base64,
+        "completionData": {
+            "targetImagePath": target_image_path,
+            "summary": summary,
+            "details": details
+        } if status == 'completed' else None
     }))

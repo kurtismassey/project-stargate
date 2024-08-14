@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime
 import json
@@ -154,14 +155,38 @@ async def process_sketch_and_chat(data: dict, session_id: str, chat_history, web
         chat_history.add_ai_message(ai_message)
 
         conversation_history = [msg.content for msg in chat_history.messages[-5:]]
-        image_base64 = await generate_target_image(session_id, details.get('details', []), conversation_history, imagen_model)
+        if isinstance(details, list) and len(details) > 0:
+            first_detail_dict = details[0]
+            if isinstance(first_detail_dict, dict):
+                detail_list = first_detail_dict.get('details', [])
+            else:
+                detail_list = []
+        else:
+            detail_list = []
+
+        print("Extracted details:", detail_list)
+        
+        image_base64 = await generate_target_image(session_id, detail_list, conversation_history, imagen_model)
 
         if image_base64:
+            print("Generated image base64")
+
+            image_path = f'sessions/{session_id}/targetModels/{str(uuid.uuid4())}.jpg'
+            
+            bucket = storage.Client().bucket(os.getenv("STORAGE_BUCKET"))
+            blob = bucket.blob(image_path)
+            blob.upload_from_string(base64.b64decode(image_base64), content_type='image/jpeg')
+
+            db = firestore.Client()
+            session_ref = db.collection('sessions').document(session_id)
+            session_ref.update({
+                'targetImages': firestore.ArrayUnion([image_path])
+            })
+
             await broadcast_to_session(session_id, {
                 "type": "updateTargetImage",
                 "imageBase64": image_base64
             })
-
     except Exception as e:
         print(f"Error querying Gemini: {e}")
         await broadcast_to_session(session_id, {
@@ -212,28 +237,39 @@ async def generate_target_image(session_id, details, conversation_history, image
         print(f"Error generating image: {str(e)}")
         return None
 
-async def complete_session(session_id: str, llm):
+async def complete_session(session_id: str, chat_history, llm):
     print(session_id)
     db = firestore.Client()
     storage_client = storage.Client()
 
-    bucket = storage_client.bucket(process.env.STORAGE_BUCKET)
+    bucket = storage_client.bucket(os.getenv("STORAGE_BUCKET"))
     blobs = list(bucket.list_blobs(prefix='targets/'))
+    
     if blobs:
         random_target = random.choice(blobs)
-        target_url = random_target.public_url
-
+        
+        image_bytes = random_target.download_as_bytes()
+        
+        target_image_path = f'sessions/{session_id}/targetImage/actual_target.jpg'
+        target_blob = bucket.blob(target_image_path)
+        target_blob.upload_from_string(image_bytes, content_type='image/jpeg')
+        
+        modelled_blobs = list(bucket.list_blobs(prefix=f'sessions/{session_id}/targetModels'))
+        if modelled_blobs:
+            latest_modelled_blob = max(modelled_blobs, key=lambda x: x.time_created)
+            modelled_image_path = latest_modelled_blob.name
+        else:
+            modelled_image_path = None
+        
         session_ref = db.collection('sessions').document(session_id)
         session_ref.update({
             'status': 'completed',
             'completedAt': firestore.SERVER_TIMESTAMP,
-            'targetImageUrl': target_url
+            'targetImagePath': target_image_path,
+            'modelledImagePath': modelled_image_path,
         })
 
-        chat_history = FirestoreChatMessageHistory(
-            session_id=session_id, collection="RVSessionChats"
-        )
-        summary_prompt = f"Summarize the remote viewing session with ID {session_id}. Here's the chat history:\n\n"
+        summary_prompt = f"Summarise the remote viewing session with ID {session_id}. Here's the chat history:\n\n"
         for msg in chat_history.messages:
             summary_prompt += f"{msg.additional_kwargs.get('user', 'Unknown')}: {msg.content}\n"
         
@@ -244,10 +280,19 @@ async def complete_session(session_id: str, llm):
             'summary': summary
         })
 
+        print(session_ref)
+        session_details = []
+        try:
+            print(session_ref.get())
+            session_details = session_ref.get().to_dict().get('detailsList', {}).get('details', [])
+        except:
+            print("Failed to get details")
+
         return {
-            'targetImageUrl': target_url,
+            'targetImagePath': target_image_path,
+            'modelledImagePath': modelled_image_path,
             'summary': summary,
-            'details': session_ref.get().to_dict().get('detailsList', [])
+            'details': session_details
         }
     else:
         raise ValueError("No target images found")

@@ -51,12 +51,17 @@ export default function SessionPage() {
   const [targetImages, setTargetImages] = useState([]);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
   const [completionData, setCompletionData] = useState(null);
+  const [actualTargetImage, setActualTargetImage] = useState(null);
+  const [isAnalysing, setIsAnalysing] = useState(false);
+  const [modelledTargetImage, setModelledTargetImage] = useState(null);
 
   const handleCompleteSession = () => {
-      socketRef.current.send(JSON.stringify({
-        type: "completeSession",
-        sessionId: sessionId
-      }));
+    setIsAnalysing(true);
+    console.log("Complete Session Clicked");
+    socketRef.current.send(JSON.stringify({
+      type: "completeSession",
+      sessionId: sessionId
+    }));
   };
 
   useEffect(() => {
@@ -70,13 +75,52 @@ export default function SessionPage() {
           if (data.detailsList?.details && data.detailsList?.details?.length > 0) {
             setDetailsList(data.detailsList.details);
           }
+          if (data.status === 'completed') {
+            setIsSessionComplete(true);
+            setCompletionData({
+              summary: data.summary,
+              details: data.detailsList?.details || [],
+              targetImagePath: data.targetImagePath,
+              modelledImagePath: data.modelledImagePath,
+            });
+          }
         }
       });
       return () => unsubscribe();
     };
 
     fetchSessionInfo();
-  }, [sessionId, storage]);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (completionData) {
+      const fetchImages = async () => {
+        const storage = getStorage();
+        
+        try {
+          if (completionData.targetImagePath) {
+            const actualImageRef = ref(storage, completionData.targetImagePath);
+            const url = await getDownloadURL(actualImageRef);
+            setActualTargetImage(url);
+          }
+        } catch (error) {
+          console.error("Error fetching actual target image:", error);
+        }
+  
+        try {
+          if (completionData.modelledImagePath) {
+            const modelledImageRef = ref(storage, completionData.modelledImagePath);
+            const url = await getDownloadURL(modelledImageRef);
+            setModelledTargetImage(url);
+          }
+        } catch (error) {
+          console.error("Error fetching modelled target image:", error);
+        }
+      };
+  
+      fetchImages();
+    }
+  }, [completionData]);  
 
   const debouncedSetDoc = useMemo(
     () =>
@@ -202,7 +246,7 @@ export default function SessionPage() {
   );
 
   const saveTargetImageToStorage = async (imageBase64) => {
-    const imageRef = ref(storage, `sessions/${sessionId}/targetImages/${Date.now()}.jpg`);
+    const imageRef = ref(storage, `sessions/${sessionId}/targetImage/${Date.now()}.jpg`);
     try {
       await uploadString(imageRef, imageBase64, 'base64', { contentType: 'image/jpeg' });
       console.log("Target image saved to Firebase Storage");
@@ -296,33 +340,34 @@ export default function SessionPage() {
       newDetails.forEach((detail) => detailsSet.add(detail));
       return Array.from(detailsSet);
     });
-  }, []);
+  }, []);  
 
   const connectWebSocket = useCallback(() => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       console.log("WebSocket is already connected.");
       return;
     }
-
+  
     const ws = new WebSocket(WEBSOCKET_URL);
     socketRef.current = ws;
-
+  
     ws.onopen = () => {
       console.log("WebSocket connected");
       setWsConnected(true);
       ws.send(JSON.stringify({ type: "joinSession", sessionId }));
       setWsReconnectCount(0);
     };
-
+  
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       switch (data.type) {
         case "initialHistory":
           setMessages(data.history);
-          if (data.currentStage) {
-            setCurrentStage(data.currentStage);
-          }
-          if (data.latestTargetImage) {
+          setCurrentStage(data.currentStage);
+          if (data.status === 'completed') {
+            setIsSessionComplete(true);
+            setCompletionData(data.completionData);
+          } else {
             setTargetImageBase64(data.latestTargetImage);
           }
           break;
@@ -355,11 +400,17 @@ export default function SessionPage() {
           break;
         case "sessionCompleted":
           setIsSessionComplete(true);
-          setCompletionData(data);
+          setCompletionData({
+            targetImagePath: data.targetImagePath,
+            modelledImagePath: data.modelledImagePath,
+            summary: data.summary,
+            details: data.details,
+          });
+          setIsAnalysing(false);
           break;
       }
     };
-
+  
     ws.onclose = (event) => {
       console.log("WebSocket disconnected", event);
       setWsConnected(false);
@@ -369,7 +420,7 @@ export default function SessionPage() {
         connectWebSocket();
       }, reconnectDelay);
     };
-
+  
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
       ws.close();
@@ -382,6 +433,7 @@ export default function SessionPage() {
     updateDetailsList,
     wsReconnectCount,
   ]);
+  
 
   useEffect(() => {
     connectWebSocket();
@@ -423,29 +475,95 @@ export default function SessionPage() {
   };
 
   useEffect(() => {
-    if (detailsList?.length > 0 || targetImages.length > 0) {
-      console.log("detailsList or targetImages updated:", detailsList, targetImages);
+    if (detailsList.length > 0 || targetImages.length > 0) {
       saveSessionInfoToFirestore();
     }
   }, [detailsList, targetImages, saveSessionInfoToFirestore]);
+  
+
+  if (isAnalysing) {
+    return (
+      <div className={`flex flex-col justify-center items-center bg-black text-green-500 ${vt323.className} p-8`}>
+        <h2 className="text-3xl mb-4 glow">Analysing Remote Viewing Session</h2>
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-green-500 glow"></div>
+      </div>
+    );
+  }
 
   if (isSessionComplete && completionData) {
     return (
-      <div className="session-summary">
-        <h2>Session Summary</h2>
-        <img src={completionData.targetImageUrl} alt="Target" />
-        <h3>Details:</h3>
-        <ul>
-          {completionData.details.map((detail, index) => (
-            <li key={index}>{detail}</li>
-          ))}
-        </ul>
-        <h3>Summary:</h3>
-        <p>{completionData.summary}</p>
+      <div className={`flex flex-col justify-center items-center bg-black text-green-500 ${vt323.className} p-8`}>
+        <h2 className="text-4xl mb-6 text-center glow">SESSION SUMMARY</h2>
+        
+        <div className="flex justify-center space-x-[250px] mb-8">
+          <div className="flex flex-col items-center">
+            <h3 className="text-2xl mb-2">Modelled Target</h3>
+            {modelledTargetImage ? (
+              <img
+                src={modelledTargetImage}
+                alt="Modelled Target"
+                className="border-2 border-green-500 max-w-[300px] max-h-[300px] object-contain"
+              />
+            ) : (
+              <div className="border-2 border-green-500 w-[300px] h-[300px] flex items-center justify-center">
+                <p>Loading modelled target image...</p>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col items-center">
+            <h3 className="text-2xl mb-2">Actual Target</h3>
+            {actualTargetImage ? (
+              <img
+                src={actualTargetImage}
+                alt="Actual Target"
+                className="border-2 border-green-500 max-w-[300px] max-h-[300px] object-contain"
+              />
+            ) : (
+              <div className="border-2 border-green-500 w-[300px] h-[300px] flex items-center justify-center">
+                <p>Loading actual target image...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      
+        <div className="grid mt-10 grid-cols-1 lg:grid-cols-2 gap-4 w-full max-w-4xl">
+          <div>
+            <h3 className="text-2xl mb-4 glow">Identified Details:</h3>
+            {completionData.details && completionData.details.length > 0 ? (
+              <ul className="list-disc list-inside">
+                {completionData.details.map((detail, index) => (
+                  <li key={index} className="mb-2">{detail}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>No details identified</p>
+            )}
+          </div>
+          <div>
+            <h3 className="text-2xl mb-4 glow">Session Summary:</h3>
+            <p className="border border-green-500 p-4 bg-green-900 bg-opacity-20">
+              {completionData.summary || "No summary available"}
+            </p>
+          </div>
+        </div>
+      
+        <footer className="fixed w-full bottom-0 justify-center items-center p-10 mt-8 text-center text-sm">
+          <div className="mt-8 text-center">
+            <Link href="/" className="text-blue-400 hover:text-blue-600 glow text-xl">
+              RETURN TO COMMAND CENTER
+            </Link>
+          </div>
+          <p>
+            <span className="glow">
+              <span className="line-through">SECRET</span>: PROJECT STARGATE
+            </span>{" "}
+            - <span className="font-bold">WEB</span> -{" "}
+            <span className="glow">AUTHORIZED PERSONNEL ONLY</span>
+          </p>
+        </footer>
       </div>
-    )
+    );
   }
-
 
   return (
     <div

@@ -9,7 +9,7 @@ import vertexai
 from vertexai.preview.vision_models import ImageGenerationModel
 
 from session_management import handle_session_join, broadcast_to_session, update_stage, connected_clients
-from chat_management import process_chat, process_sketch_and_chat
+from chat_management import process_chat, process_sketch_and_chat, complete_session
 
 load_dotenv()
 
@@ -28,7 +28,7 @@ llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
 vertexai.init(project=os.getenv("GOOGLE_CLOUD_PROJECT"), location="us-central1")
 imagen_model = ImageGenerationModel.from_pretrained("imagegeneration@005")
 
-chat_events = ["joinSession", "chatOnly", "sketchAndChat"]
+chat_events = ["joinSession", "chatOnly", "sketchAndChat", "completeSession"]
 
 @app.websocket("/session")
 async def websocket_endpoint(websocket: WebSocket):
@@ -73,15 +73,18 @@ async def websocket_endpoint(websocket: WebSocket):
                 case "sketchAndChat":
                     await process_sketch_and_chat(data, session_id, chat_history, websocket, llm, imagen_model)
                 case "completeSession":
+                    print("COMPLETE received")
                     try:
-                        completion_data = await complete_session(session_id, llm)
+                        completion_data = await complete_session(session_id, chat_history, llm)
                         await broadcast_to_session(session_id, {
                             "type": "sessionCompleted",
-                            "targetImageUrl": completion_data['targetImageUrl'],
+                            "targetImagePath": completion_data['targetImagePath'],
+                            "modelledImagePath": completion_data['modelledImagePath'],
                             "summary": completion_data['summary'],
                             "details": completion_data['details']
                         })
                     except Exception as e:
+                        print("Failed to complete, error: ", e)
                         await websocket.send_text(json.dumps({
                             "type": "error",
                             "message": f"Failed to complete session: {str(e)}"
