@@ -483,7 +483,7 @@ export default function SessionPage() {
 
   if (isAnalysing) {
     return (
-      <div className={`flex flex-col justify-center items-center bg-black text-green-500 ${vt323.className} p-8`}>
+      <div className={`w-screen h-screen flex flex-col justify-center items-center bg-black text-green-500 ${vt323.className} p-8`}>
         <h2 className="text-3xl mb-4 glow">Analysing Remote Viewing Session</h2>
         <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-green-500 glow"></div>
       </div>
