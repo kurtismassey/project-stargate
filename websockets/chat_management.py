@@ -260,6 +260,36 @@ async def complete_session(session_id: str, chat_history, llm):
             modelled_image_path = latest_modelled_blob.name
         else:
             modelled_image_path = None
+            target_image_base64 = None
+
+        modelled_image_base64 = None
+
+        if target_image_path:
+            target_blob = bucket.blob(target_image_path)
+            target_image_bytes = target_blob.download_as_bytes()
+            target_image_base64 = base64.b64encode(target_image_bytes).decode('utf-8')
+
+        if modelled_image_path:
+            modelled_blob = bucket.blob(modelled_image_path)
+            modelled_image_bytes = modelled_blob.download_as_bytes()
+            modelled_image_base64 = base64.b64encode(modelled_image_bytes).decode('utf-8')
+
+        summary_prompt = f"Summarise the remote viewing session with ID {session_id}. Compare the target image with the modelled image. Here's the chat history:\n\n"
+        for msg in chat_history.messages:
+            summary_prompt += f"{msg.additional_kwargs.get('user', 'Unknown')}: {msg.content}\n"
+
+        query_content = [
+            {"type": "text", "text": summary_prompt},
+        ]
+
+        if target_image_base64:
+            query_content.append({"type": "image_url", "image_url": f"data:image/jpeg;base64,{target_image_base64}"})
+
+        if modelled_image_base64:
+            query_content.append({"type": "image_url", "image_url": f"data:image/jpeg;base64,{modelled_image_base64}"})
+
+        summary_response = llm.invoke([HumanMessage(content=query_content)])
+        summary = summary_response.content
         
         session_ref = db.collection('sessions').document(session_id)
         session_ref.update({
@@ -268,14 +298,6 @@ async def complete_session(session_id: str, chat_history, llm):
             'targetImagePath': target_image_path,
             'modelledImagePath': modelled_image_path,
         })
-
-        summary_prompt = f"Summarise the remote viewing session with ID {session_id}. Here's the chat history:\n\n"
-        for msg in chat_history.messages:
-            summary_prompt += f"{msg.additional_kwargs.get('user', 'Unknown')}: {msg.content}\n"
-        
-        summary_response = llm.invoke([HumanMessage(content=summary_prompt)])
-        summary = summary_response.content
-
         session_ref.update({
             'summary': summary
         })
@@ -283,8 +305,7 @@ async def complete_session(session_id: str, chat_history, llm):
         print(session_ref)
         session_details = []
         try:
-            print(session_ref.get())
-            session_details = session_ref.get().to_dict().get('detailsList', {}).get('details', [])
+            session_details = session_ref.get().to_dict().get('detailsList', {})
         except:
             print("Failed to get details")
 
