@@ -2,30 +2,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Create a non-root user
-RUN addgroup --system app && adduser --system --group app
-
 # Install system dependencies
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Install and configure poetry
-RUN pip install poetry && \
-    poetry config virtualenvs.create false && \
-    poetry config cache-dir /app/.cache
+# Install poetry
+RUN pip install poetry
 
+# Copy Poetry files
 COPY pyproject.toml poetry.lock ./
 
 # Install dependencies
-RUN poetry install --no-root
+RUN poetry config virtualenvs.in-project true && \
+    poetry install --no-root
 
+# Copy application files
 COPY core /app/core
 COPY .env /app/.env
-
-# Set proper permissions
-RUN chown -R app:app /app
-
-# Switch to non-root user
-USER app
 
 EXPOSE 8000
 
