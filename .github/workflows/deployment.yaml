@@ -4,16 +4,49 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  deploy-frontend:
+  quality-checks:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Install dependencies
+        run: |
+          poetry install
+
+      - name: Run linting
+        run: |
+          poetry run ruff check core/
+          poetry run mypy core/
+
+      - name: Run tests
+        run: |
+          poetry run pytest tests/ -v
+
+  deploy-frontend:
+    needs: quality-checks
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
         uses: actions/checkout@v4
 
       - id: auth
@@ -31,7 +64,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          cd web_app
+          cd core/web
           echo "FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}" >> .env
           echo "FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}" >> .env
           echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}" >> .env
@@ -48,15 +81,17 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "project-stargate-web" \
-                  --image "us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-web:${{ github.sha }}" \
-                  --region="us-central1" \
-                  --allow-unauthenticated \
-                  --port=3000 \
+            --image "us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-web:${{ github.sha }}" \
+            --region="us-central1" \
+            --allow-unauthenticated \
+            --port=3000
 
   deploy-websocket:
+    needs: quality-checks
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
       - id: auth
@@ -74,16 +109,20 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          cd websockets
-          docker build -t project-stargate-websocket .
+          echo "GOOGLE_CLOUD_PROJECT=${{ vars.GOOGLE_CLOUD_PROJECT }}" >> .env
+          echo "GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}" >> .env
+          echo "FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}" >> .env
+          echo "STORAGE_BUCKET=${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}" >> .env
+          docker build -t project-stargate-websocket -f core/websocket/Dockerfile .
           docker tag project-stargate-websocket us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}
           docker push us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "project-stargate-websocket" \
-                  --image "us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}" \
-                  --region="us-central1" \
-                  --allow-unauthenticated \
-                  --port=8000 \
-                  --set-env-vars GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}  \
+            --image "us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}" \
+            --region="us-central1" \
+            --allow-unauthenticated \
+            --port=8000 \
+            --set-env-vars GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}

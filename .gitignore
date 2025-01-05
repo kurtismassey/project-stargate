@@ -1,6 +1,43 @@
-*node_modules*
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.py[cod]
+*.so
+
+# Environment
 .env
+.env.*
+!.env.example
+
+# Build outputs
 *.next/
-web_app/public/firebase-config.js
-*__pycache__
-rag_prep/stargate_documents
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Project specific
+core/web/public/firebase-config.js
+core/rag/stargate_documents/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
