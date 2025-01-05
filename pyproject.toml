@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Project Stargate AI - Remote Viewing Platform"
 authors = ["Kurtis Massey <55586356+kurtismassey@users.noreply.github.com>"]
 readme = "README.md"
+packages = [
+    { include = "core" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
