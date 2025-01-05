@@ -97,7 +97,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          echo "GOOGLE_CLOUD_PROJECT=project-stargate-web" >> .env
+          echo "GOOGLE_CLOUD_PROJECT=${{ vars.GOOGLE_CLOUD_PROJECT }}" >> .env
           echo "GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
           echo "FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}" >> .env
           echo "FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}" >> .env
@@ -113,4 +113,4 @@ jobs:
             --region="us-central1" \
             --allow-unauthenticated \
             --port=8000 \
-            --set-env-vars GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            --set-env-vars "GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }},GOOGLE_CLOUD_PROJECT=${{ vars.GOOGLE_CLOUD_PROJECT }},FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }},FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }},STORAGE_BUCKET=${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}" 

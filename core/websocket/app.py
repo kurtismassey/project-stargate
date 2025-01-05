@@ -26,6 +26,12 @@ llm = ChatVertexAI(
 chat_events = ["joinSession", "chatOnly", "sketchAndChat", "completeSession"]
 
 
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """Health check endpoint."""
+    return {"status": "healthy"}
+
+
 @app.websocket("/session")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     """WebSocket endpoint for session management."""
