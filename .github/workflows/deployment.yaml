@@ -60,8 +60,8 @@ jobs:
         uses: actions/checkout@v4
 
       - id: auth
-        name: "Authenticate to Google Cloud"
-        uses: "google-github-actions/auth@v2"
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.SERVICE_ACCOUNT }}
@@ -76,6 +76,12 @@ jobs:
         run: |
           cd websockets
           docker build -t project-stargate-websocket .
+          echo "GOOGLE_CLOUD_PROJECT=project-stargate-web" >> .env
+          echo "GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}" >> .env
+          echo "FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}" >> .env
+          echo "STORAGE_BUCKET=${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}" >> .env
+          docker build -t project-stargate-websocket -f core/websocket/Dockerfile .
           docker tag project-stargate-websocket us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}
           docker push us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}
 
@@ -87,3 +93,8 @@ jobs:
                   --allow-unauthenticated \
                   --port=8000 \
                   --set-env-vars GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}  \
+            --image "us-central1-docker.pkg.dev/project-stargate-web/project-stargate-web-repo/project-stargate-websocket:${{ github.sha }}" \
+            --region="us-central1" \
+            --allow-unauthenticated \
+            --port=8000 \
+            --set-env-vars "GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }},GOOGLE_CLOUD_PROJECT=project-stargate-web,FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }},FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }},STORAGE_BUCKET=${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}"
