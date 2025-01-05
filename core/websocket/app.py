@@ -32,7 +32,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     session_id = None
     try:
         await websocket.accept()
-        
+
         data = await websocket.receive_text()
         data = json.loads(data)
         session_id = data.get("sessionId")
@@ -57,7 +57,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         chat_history, websocket, session_id
                     )
                 case "draw":
-                    current_stage = websocket_manager.connected_sessions[session_id]["stage"]
+                    current_stage = websocket_manager.connected_sessions[session_id][
+                        "stage"
+                    ]
                     data["stageNumber"] = current_stage
                     await websocket_manager.broadcast_to_session(
                         session_id, data, exclude=websocket
@@ -67,7 +69,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         session_id, {"type": "clear"}
                     )
                 case "syncStage":
-                    await websocket_manager.update_stage(session_id, data["stageNumber"])
+                    await websocket_manager.update_stage(
+                        session_id, data["stageNumber"]
+                    )
                 case "chatOnly":
                     await process_chat(data, session_id, chat_history, websocket, llm)
                 case "sketchAndChat":
@@ -91,7 +95,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         await websocket.send_json(
                             {
                                 "type": "error",
-                                "message": f"Failed to complete session: {str(e)}",
+                                "message": f"Failed to complete session: {e!s}",
                             }
                         )
 

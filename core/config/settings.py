@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,7 +27,7 @@ class Settings(BaseSettings):
     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: str
 
     # Web app settings
-    CORS_ORIGINS: List[str] = ["*"]
+    CORS_ORIGINS: list[str] = ["*"]
     NEXT_PUBLIC_WEBSOCKET_URL: str = "ws://localhost:8000/session"
     WEBSOCKET_HOST: str = "0.0.0.0"
     WEBSOCKET_PORT: int = 8000
