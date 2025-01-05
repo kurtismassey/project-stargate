@@ -1,9 +1,8 @@
-from typing import Dict, Set
-
 from fastapi import WebSocket
 from langchain_google_firestore import FirestoreChatMessageHistory
 
-connected_clients: Dict[str, Dict[str, Set[WebSocket] | int]] = {}
+connected_clients: dict[str, dict[str, set[WebSocket] | int]] = {}
+
 
 async def handle_session_join(
     chat_history: FirestoreChatMessageHistory,
@@ -26,6 +25,7 @@ async def handle_session_join(
         }
     )
 
+
 async def broadcast_to_session(
     session_id: str,
     message: dict,
@@ -36,6 +36,7 @@ async def broadcast_to_session(
         for client in connected_clients[session_id]["clients"]:
             if client != exclude:
                 await client.send_json(message)
+
 
 async def update_stage(session_id: str, stage: int) -> None:
     """Update the stage of a session."""
