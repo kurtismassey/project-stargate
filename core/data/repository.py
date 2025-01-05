@@ -26,9 +26,9 @@ class BaseRepository(Generic[T]):
         doc_ref.set(model.to_dict())
         return model
 
-    async def get(self, id: UUID) -> T | None:
+    async def get(self, entity_id: UUID) -> T | None:
         """Get a document by ID."""
-        doc_ref = self.db.collection(self.collection_name).document(str(id))
+        doc_ref = self.db.collection(self.collection_name).document(str(entity_id))
         doc = doc_ref.get()
         return self._to_model(doc.to_dict()) if doc.exists else None
 
@@ -39,9 +39,9 @@ class BaseRepository(Generic[T]):
         doc_ref.update(model.to_dict())
         return model
 
-    async def delete(self, id: UUID) -> None:
+    async def delete(self, entity_id: UUID) -> None:
         """Delete a document."""
-        doc_ref = self.db.collection(self.collection_name).document(str(id))
+        doc_ref = self.db.collection(self.collection_name).document(str(entity_id))
         doc_ref.delete()
 
     async def list(self, limit: int = 100) -> list[T]:

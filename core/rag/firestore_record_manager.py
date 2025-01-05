@@ -22,7 +22,8 @@ class FirestoreRecordManager(RecordManager):
         self.db = firestore.Client()
         self.collection = self.db.collection(self.collection_name)
         logger.info(
-            f"Initialised FirestoreRecordManager with namespace: {namespace}, collection: {collection_name}"
+            "Initialised FirestoreRecordManager with "
+            f"namespace: {namespace}, collection: {collection_name}"
         )
 
     def create_schema(self) -> None:
