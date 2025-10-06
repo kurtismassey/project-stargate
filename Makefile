@@ -1,41 +1,54 @@
-.PHONY: install start-websocket start-frontend start-web-app format lint test clean
-
 install:
-	poetry install
-	poetry run pip install --upgrade pip
+	@npx concurrently -n backend,frontend -c "blue,green" "$(MAKE) backend-install" "$(MAKE) frontend-install"
 
-activate:
-	poetry shell
+backend-install:
+	@echo "Installing backend..."
+	@poetry install
 
-start-websocket:
-	poetry run uvicorn core.websocket.app:app --host 0.0.0.0 --port 8000 --reload
+frontend-install:
+	@echo "Installing frontend..."
+	@cd frontend && npm install
 
-start-frontend:
-	cd core/web && npm install && npm run dev
+dev:
+	@npx concurrently -n backend,frontend -c "blue,green" "$(MAKE) backend-dev" "$(MAKE) frontend-dev"
 
-start-web-app: install
-	$(MAKE) start-frontend &
-	$(MAKE) start-websocket
+frontend-dev:
+	@echo "Starting frontend..."
+	@cd frontend && npm run dev
+
+backend-dev:
+	@echo "Starting backend..."
+	@cd backend && PYTHONPATH=. poetry run fastapi dev app.py
 
 format:
-	poetry run ruff check --fix-only --unsafe-fixes core/
-	poetry run ruff format core/
+	@npx concurrently -n backend,frontend -c "blue,green" "$(MAKE) backend-format" "$(MAKE) frontend-format"
+
+backend-format:
+	@echo "Formatting backend..."
+	@poetry run ruff check backend/
+	@poetry run ruff format backend/
+
+frontend-format:
+	@echo "Formatting frontend..."
+	@cd frontend && npm run format
 
 lint:
-	poetry run mypy core/
-	poetry run ruff check core/
+	@npx concurrently -n backend,frontend -c "blue,green" "$(MAKE) backend-lint" "$(MAKE) frontend-lint"
+
+backend-lint:
+	@echo "Linting backend..."
+	@poetry run ruff check backend/
+	@poetry run mypy backend/
+
+frontend-lint:
+	@echo "Linting frontend..."
+	@cd frontend && npm run lint
 
 test:
-	poetry run pytest tests/ -v
+	@npx concurrently -n backend,frontend -c "blue,green" "$(MAKE) backend-test" "$(MAKE) frontend-test"
 
-clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-	find . -type f -name "*.pyd" -delete
-	find . -type f -name ".coverage" -delete
-	find . -type d -name "*.egg-info" -exec rm -rf {} +
-	find . -type d -name "*.egg" -exec rm -rf {} +
-	find . -type d -name ".pytest_cache" -exec rm -rf {} +
-	find . -type d -name ".mypy_cache" -exec rm -rf {} +
-	find . -type d -name ".ruff_cache" -exec rm -rf {} +
+backend-test:
+	@cd backend && PYTHONPATH=. poetry run pytest tests/ -v
+
+frontend-test:
+	@cd frontend && npm run test
