@@ -65,12 +65,24 @@ async def analyse_session(
             )
             content.append(
                 {
+                    "type": "text",
+                    "text": "=== ACTUAL TARGET IMAGE (USE THIS FOR ALL ACCURACY SCORING) ===",
+                }
+            )
+            content.append(
+                {
                     "type": "image_url",
                     "image_url": f"data:image/jpeg;base64,{compressed_target}",
                 }
             )
         except Exception as e:
             logger.error(f"Error compressing target image: {e}")
+            content.append(
+                {
+                    "type": "text",
+                    "text": "=== ACTUAL TARGET IMAGE (USE THIS FOR ALL ACCURACY SCORING) ===",
+                }
+            )
             content.append(
                 {
                     "type": "image_url",
@@ -89,12 +101,24 @@ async def analyse_session(
             )
             content.append(
                 {
+                    "type": "text",
+                    "text": "=== TARGET MODEL (REFERENCE ONLY - DO NOT USE FOR SCORING) ===",
+                }
+            )
+            content.append(
+                {
                     "type": "image_url",
                     "image_url": f"data:image/jpeg;base64,{compressed_model}",
                 }
             )
         except Exception as e:
             logger.error(f"Error compressing target model: {e}")
+            content.append(
+                {
+                    "type": "text",
+                    "text": "=== TARGET MODEL (REFERENCE ONLY - DO NOT USE FOR SCORING) ===",
+                }
+            )
             content.append(
                 {
                     "type": "image_url",
