@@ -549,7 +549,7 @@ export default function SessionPage() {
                 <div className="flex-1 flex flex-col xl:flex-row gap-4 min-h-0">
                   {/* Left Column - Drawing Canvas */}
                   <div className="flex-1 flex items-center justify-center min-h-0">
-                    <div className="relative w-full h-full">
+                    <div className="relative max-w-full max-h-full aspect-12/7">
                       <canvas
                         ref={canvasRef}
                         width={1200}
