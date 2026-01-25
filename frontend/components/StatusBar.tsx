@@ -7,31 +7,34 @@ interface StatusBarProps {
 }
 
 enum Status {
-  ESTABLISHING = "ESTABLISHING CONNECTION...",
-  CONNECTED = "CONNECTION ACTIVE",
-  FAILED = "CONNECTION FAILED",
+  ESTABLISHING = "Establishing connection...",
+  CONNECTED = "Connection active",
+  FAILED = "Connection failed",
 }
 
 export default function StatusBar({ className = "" }: StatusBarProps) {
   const { isConnected, isLoading, error } = useWebSocket();
 
   return (
-    <div
-      className={`pt-2 mt-2 border-t border-primary border-opacity-30 ${className}`}
-    >
-      <div className="text-primary font-mono text-xs opacity-75 text-center">
-        {isLoading ? (
-          <span className="animate-pulse">●</span>
-        ) : isConnected ? (
-          <span className="text-green-400">✓</span>
-        ) : (
-          <span className="text-red-400">✗</span>
-        )}{" "}
-        {isLoading
-          ? Status.ESTABLISHING
-          : isConnected
-            ? Status.CONNECTED
-            : error || Status.FAILED}
+    <div className={`pt-3 mt-3 ${className}`}>
+      <div className="divider mb-3" />
+      <div className="flex items-center justify-center gap-2 text-xs">
+        <div
+          className={`status-dot ${
+            isLoading
+              ? "bg-amber-400 animate-pulse"
+              : isConnected
+                ? "status-dot-connected"
+                : "status-dot-disconnected"
+          }`}
+        />
+        <span className="text-primary/60 font-medium">
+          {isLoading
+            ? Status.ESTABLISHING
+            : isConnected
+              ? Status.CONNECTED
+              : error || Status.FAILED}
+        </span>
       </div>
     </div>
   );

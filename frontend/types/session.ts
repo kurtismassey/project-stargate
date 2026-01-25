@@ -19,4 +19,6 @@ export interface Session {
   updatedAt: string;
   status: SessionStatus;
   stage: Stage;
+  score: number | null;
+  stagesWithContent?: Stage[];
 }

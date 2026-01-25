@@ -43,19 +43,22 @@ export const formatTime = (timestamp: string): string => {
 };
 
 /**
+ * Format stage number to Roman numeral
+ * @param stageNum - Stage number (1-6)
+ * @returns Roman numeral string (I, II, III, etc.)
+ */
+const getRomanNumeral = (stageNum: number): string => {
+  const numerals = ["", "I", "II", "III", "IV", "V", "VI"];
+  return numerals[stageNum] || "";
+};
+
+/**
  * Format stage enum to display label
  * @param stage - Stage enum value
  * @returns Formatted stage label (e.g., "Stage I")
  */
 export const formatStageLabel = (stage: Stage): string => {
-  const stageName = Stage[stage];
-  const parts = stageName.split("_");
-  return (
-    parts[0].charAt(0).toUpperCase() +
-    parts[0].slice(1).toLowerCase() +
-    " " +
-    parts[1]
-  );
+  return `Stage ${getRomanNumeral(stage)}`;
 };
 
 /**
@@ -66,12 +69,12 @@ export const formatStageLabel = (stage: Stage): string => {
 export function getStatusColour(status: string): string {
   switch (status) {
     case "active":
-      return "bg-green-500 text-white";
+      return "badge-success";
     case "completed":
-      return "bg-foreground text-secondary";
+      return "badge-info";
     case "assessing":
-      return "bg-yellow-500 text-black";
+      return "badge-warning";
     default:
-      return "bg-gray-500 text-white";
+      return "badge-info";
   }
 }

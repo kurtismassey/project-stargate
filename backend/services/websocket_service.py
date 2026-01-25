@@ -25,6 +25,27 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 active_session_list_connections: list[WebSocket] = []
 
 
+def get_stages_with_content(session: SessionModel) -> list[int]:
+    """
+    Determine which stages have content (chat messages or drawings).
+
+    Args:
+        session: The session model to check.
+
+    Returns:
+        A list of stages that have content.
+    """
+    stages_with_content = set()
+    if session.chat:
+        for chat_msg in session.chat:
+            if chat_msg.text and chat_msg.text.strip():
+                stages_with_content.add(chat_msg.stage.value)
+    if session.drawings:
+        for drawing in session.drawings:
+            stages_with_content.add(drawing.stage.value)
+    return sorted(list(stages_with_content))
+
+
 async def broadcast_to_session_list(message: str):
     for connection in active_session_list_connections:
         await connection.send_text(message)
@@ -49,12 +70,27 @@ async def _receive_session_list_messages(websocket: WebSocket):
                         db_session.add(session)
                         await db_session.commit()
                         await db_session.refresh(session)
+                        statement = (
+                            select(SessionModel)
+                            .where(SessionModel.id == session.id)
+                            .options(
+                                selectinload(SessionModel.chat),  # type: ignore
+                                selectinload(SessionModel.drawings),  # type: ignore
+                            )
+                        )
+                        result = await db_session.exec(statement)
+                        session_with_rels = result.one()
 
                         session_dict = {
-                            "id": str(session.id),
-                            "createdAt": session.created_at.isoformat(),
-                            "updatedAt": session.updated_at.isoformat(),
-                            "status": session.status.value,
+                            "id": str(session_with_rels.id),
+                            "createdAt": session_with_rels.created_at.isoformat(),
+                            "updatedAt": session_with_rels.updated_at.isoformat(),
+                            "status": session_with_rels.status.value,
+                            "stage": session_with_rels.stage.value,
+                            "score": None,
+                            "stagesWithContent": get_stages_with_content(
+                                session_with_rels
+                            ),
                         }
                         broadcast_message = {
                             "type": EventType.SESSION_CREATED,
@@ -102,19 +138,27 @@ async def handle_websocket_session(websocket: WebSocket):
 
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session:
-            statement = select(SessionModel)
+            statement = select(SessionModel).options(
+                selectinload(SessionModel.analysis),
+                selectinload(SessionModel.chat),  # type: ignore
+                selectinload(SessionModel.drawings),  # type: ignore
+            )
             results = await session.exec(statement)
             sessions = results.all()
 
-            sessions_data = [
-                {
-                    "id": str(s.id),
-                    "createdAt": s.created_at.isoformat(),
-                    "updatedAt": s.updated_at.isoformat(),
-                    "status": s.status.value,
-                }
-                for s in sessions
-            ]
+            sessions_data = []
+            for s in sessions:
+                sessions_data.append(
+                    {
+                        "id": str(s.id),
+                        "createdAt": s.created_at.isoformat(),
+                        "updatedAt": s.updated_at.isoformat(),
+                        "status": s.status.value,
+                        "stage": s.stage.value,
+                        "score": s.analysis.composite_score if s.analysis else None,
+                        "stagesWithContent": get_stages_with_content(s),
+                    }
+                )
 
             await websocket.send_text(
                 json.dumps({"type": EventType.SESSIONS, "sessions": sessions_data})
@@ -202,6 +246,7 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                         await db_session.refresh(session)
                         session_dump = session.model_dump()
                         session_drawings = message.get("drawings", [])
+                        stages_with_content = get_stages_with_content(session)
                         await broadcast_to_session_list(
                             json.dumps(
                                 {
@@ -211,6 +256,9 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                                         "createdAt": session.created_at.isoformat(),
                                         "updatedAt": session.updated_at.isoformat(),
                                         "status": session.status.value,
+                                        "stage": session.stage.value,
+                                        "score": None,
+                                        "stagesWithContent": stages_with_content,
                                     },
                                 }
                             )
@@ -303,6 +351,9 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                                 db_session.add(session_analysis)
                                 await db_session.commit()
                                 await db_session.refresh(session_analysis)
+                                stages_with_content = get_stages_with_content(
+                                    session_to_complete
+                                )
                                 await broadcast_to_session_list(
                                     json.dumps(
                                         {
@@ -312,6 +363,9 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                                                 "createdAt": session_to_complete.created_at.isoformat(),
                                                 "updatedAt": session_to_complete.updated_at.isoformat(),
                                                 "status": session_to_complete.status.value,
+                                                "stage": session_to_complete.stage.value,
+                                                "score": session_analysis.composite_score,
+                                                "stagesWithContent": stages_with_content,
                                             },
                                         }
                                     )

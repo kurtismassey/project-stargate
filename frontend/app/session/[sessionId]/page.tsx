@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useWebSocket } from "@/components/WebSocketProvider";
-import TitleBar from "@/components/TitleBar";
+import Header from "@/components/Header";
 import ChatWindow from "@/components/ChatWindow";
 import AnalysisReport from "@/components/AnalysisReport";
 import { QRCodeSVG } from "qrcode.react";
@@ -447,32 +447,41 @@ export default function SessionPage() {
   }, [messages, currentStage]);
 
   return (
-    <div className="h-full flex flex-col">
-      <TitleBar
-        title={
-          session?.createdAt
-            ? `SESSION ${formatDate(session.createdAt)}`
-            : `SESSION ${sessionId.toUpperCase()}`
-        }
-        status={session?.status}
-      />
+    <div className="h-full flex flex-col bg-secondary">
+      <header className="relative w-full px-2 sm:px-4 md:px-6 py-2 sm:py-3 shrink-0 glass-dark">
+        <Header
+          pageTitle={
+            session?.createdAt
+              ? `Session ${formatDate(session.createdAt)}`
+              : `Session`
+          }
+          status={session?.status}
+          onComplete={!isReadOnly ? handleCompleteSession : undefined}
+        />
+      </header>
 
-      <div className="bg-secondary border border-primary p-4 md:p-8 flex-1 flex flex-col min-h-0">
+      <main className="flex-1 flex flex-col min-h-0 p-4 md:p-6">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
-            <span className="text-primary opacity-50 font-mono text-sm">
-              {session?.status === "assessing"
-                ? "ASSESSING SESSION..."
-                : "LOADING SESSION..."}
-            </span>
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative w-12 h-12">
+                <div className="absolute inset-0 rounded-full border-2 border-primary/10" />
+                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+              </div>
+              <span className="text-sm text-primary/60 font-medium">
+                {session?.status === "assessing"
+                  ? "Assessing session..."
+                  : "Loading session..."}
+              </span>
+            </div>
           </div>
         ) : (
           <>
             {isReadOnly && analysisReport ? (
               // Completed Session View
-              <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
+              <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
                 <div className="lg:col-span-1 min-h-0 overflow-y-auto">
-                  <div className="grid grid-cols-2 gap-2 px-4">
+                  <div className="grid grid-cols-2 gap-3">
                     {Object.values(Stage)
                       .filter((v) => typeof v === "number")
                       .map((stage, i) => {
@@ -483,10 +492,14 @@ export default function SessionPage() {
                         return (
                           <div
                             key={stage}
-                            className="col-span-1 border border-primary rounded p-2"
+                            className="card p-3 animate-fade-in"
+                            style={{ animationDelay: `${i * 50}ms` }}
                           >
-                            <div className="text-primary font-mono text-xs font-semibold mb-1">
-                              {formatStageLabel(stage as Stage)}
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-1 h-4 bg-primary/30 rounded-full" />
+                              <span className="text-xs font-medium text-primary/80">
+                                {formatStageLabel(stage as Stage)}
+                              </span>
                             </div>
                             <canvas
                               ref={(el) => {
@@ -494,7 +507,8 @@ export default function SessionPage() {
                               }}
                               width={600}
                               height={337.5}
-                              className="w-full aspect-video bg-canvas"
+                              className="w-full aspect-video rounded-md"
+                              style={{ backgroundColor: "#FFFADC" }}
                             />
                           </div>
                         );
@@ -516,46 +530,39 @@ export default function SessionPage() {
               // Active Session View
               <>
                 {/* Stage Navigation */}
-                <div className="flex justify-center mb-4 flex-shrink-0">
-                  <div className="flex border border-primary/30 rounded-md overflow-hidden">
-                    {Object.values(Stage)
-                      .filter((v) => typeof v === "number")
-                      .map((stage) => (
-                        <button
-                          key={stage}
-                          onClick={() => handleStageChange(stage as Stage)}
-                          className={`px-3 py-1 border-r border-primary/30 last:border-r-0 text-xs font-mono transition-colors duration-200 ${
-                            currentStage === stage
-                              ? "bg-primary text-secondary"
-                              : "text-primary hover:bg-primary/10"
-                          }`}
-                        >
-                          {formatStageLabel(stage as Stage)}
-                        </button>
-                      ))}
+                <div className="flex justify-center mb-4 sm:mb-6 shrink-0">
+                  <div className="w-full sm:w-auto">
+                    <div className="flex bg-secondary rounded-lg p-0.5 sm:p-1 shadow-sm border border-primary/10">
+                      {Object.values(Stage)
+                        .filter((v) => typeof v === "number")
+                        .map((stage) => (
+                          <button
+                            key={stage}
+                            onClick={() => handleStageChange(stage as Stage)}
+                            className={`flex-1 sm:flex-none px-1.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium rounded-md transition-all duration-200 whitespace-nowrap ${
+                              currentStage === stage
+                                ? "bg-primary text-secondary shadow-sm"
+                                : "text-primary/70 hover:text-primary hover:bg-primary/5"
+                            }`}
+                          >
+                            {formatStageLabel(stage as Stage)}
+                          </button>
+                        ))}
+                    </div>
                   </div>
-                  {!isReadOnly && (
-                    <button
-                      onClick={handleCompleteSession}
-                      disabled={isReadOnly}
-                      className="ml-4 px-3 py-1 rounded-md border text-xs font-mono transition-colors duration-200 border-gray-400 text-gray-500 hover:bg-gray-500 hover:text-white disabled:bg-gray-400 disabled:border-gray-400 disabled:text-white"
-                    >
-                      COMPLETE
-                    </button>
-                  )}
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col xl:flex-row gap-4 min-h-0">
+                <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 min-h-0">
                   {/* Left Column - Drawing Canvas */}
-                  <div className="flex-1 flex items-center justify-center min-h-0">
-                    <div className="relative max-w-full max-h-full aspect-12/7">
+                  <div className="flex-1 flex items-center justify-center min-h-0 order-1 lg:order-1">
+                    <div className="relative max-w-full max-h-full aspect-12/7 card p-2 shadow-2xl shadow-black/30">
                       <canvas
                         ref={canvasRef}
                         width={1200}
                         height={700}
-                        className="border-2 border-primary rounded cursor-crosshair w-full h-full touch-none"
-                        style={{ touchAction: "none" }}
+                        className="rounded-lg cursor-crosshair w-full h-full touch-none shadow-inner"
+                        style={{ touchAction: "none", backgroundColor: "#FFFADC" }}
                         onMouseDown={startDrawing}
                         onMouseUp={stopDrawing}
                         onMouseLeave={stopDrawing}
@@ -591,19 +598,34 @@ export default function SessionPage() {
                       {!isReadOnly && (
                         <>
                           {/* Top Controls */}
-                          <div className="absolute top-2 left-4 right-4 flex justify-between items-center">
+                          <div className="absolute top-3 left-4 right-4 flex justify-between items-center">
                             <button
                               onClick={handleClearCanvas}
-                              className="text-primary font-mono text-xs hover:opacity-80 transition-opacity"
+                              className="btn btn-ghost text-xs gap-1.5"
                             >
-                              CLEAR SKETCH
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M3 6h18" />
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                              </svg>
+                              Clear
                             </button>
 
-                            <div className="flex items-center space-x-2">
-                              <label className="text-primary font-mono text-xs">
-                                INK:
-                              </label>
-                              <div className="w-8 h-5 border border-primary relative cursor-pointer">
+                            <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
+                              <span className="text-xs text-primary/70">
+                                Ink
+                              </span>
+                              <div className="relative w-7 h-7 rounded-md border border-primary/20 overflow-hidden cursor-pointer shadow-sm">
                                 <div
                                   className="w-full h-full"
                                   style={{ backgroundColor: penColour }}
@@ -619,24 +641,22 @@ export default function SessionPage() {
                           </div>
 
                           {/* Bottom Controls */}
-                          <div className="absolute bottom-4 left-4">
-                            <div className="flex items-center space-x-2 bg-secondary/80 border border-primary/20 rounded-full px-3 py-1 text-xs font-mono text-primary">
+                          <div className="absolute bottom-3 left-4">
+                            <div className="glass rounded-full px-3 py-1.5 flex items-center gap-2">
                               <div
-                                className={`w-2 h-2 rounded-full ${sessionConnected ? "bg-green-400" : "bg-red-400"}`}
-                              ></div>
-                              <span>
-                                {sessionConnected
-                                  ? "CONNECTED"
-                                  : "DISCONNECTED"}
+                                className={`status-dot ${sessionConnected ? "status-dot-connected" : "status-dot-disconnected"}`}
+                              />
+                              <span className="text-xs font-medium text-primary/70">
+                                {sessionConnected ? "Connected" : "Disconnected"}
                               </span>
                             </div>
                           </div>
 
                           {mobileUrl && (
-                            <div className="absolute bottom-4 right-4">
+                            <div className="absolute bottom-3 right-4">
                               <div
                                 onClick={() => setQrExpanded(!qrExpanded)}
-                                className="bg-secondary/80 border border-primary/20 rounded-lg p-2 cursor-pointer transition-all duration-300 ease-in-out hover:border-primary/50"
+                                className="glass rounded-lg p-2 cursor-pointer transition-all duration-300 ease-in-out hover:shadow-md"
                               >
                                 {qrExpanded ? (
                                   <div className="flex flex-col items-center p-2">
@@ -648,31 +668,36 @@ export default function SessionPage() {
                                       bgColor="transparent"
                                       fgColor="#065B84"
                                     />
-                                    <div className="text-primary font-mono text-xs font-semibold mt-2">
-                                      SKETCH ON MOBILE
-                                    </div>
+                                    <span className="text-xs font-medium text-primary/70 mt-2">
+                                      Sketch on mobile
+                                    </span>
                                   </div>
                                 ) : (
-                                  <div className="flex items-center space-x-2">
+                                  <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
                                       width="16"
                                       height="16"
-                                      fill="currentColor"
-                                      className="bi bi-qr-code text-primary"
-                                      viewBox="0 0 16 16"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      className="text-primary/70"
                                     >
-                                      <path d="M2 2h2v2H2z" />
-                                      <path d="M6 0v6H0V0zm-4 4h2v2H2zM7 1h1v1H7zM5 1h1v1H5zM1 1h1v1H1zM1 3h1v1H1zM3 1h1v1H3zm1 2h1v1H4z" />
-                                      <path d="M10 2h2v2h-2z" />
-                                      <path d="M16 0v6h-6V0zm-4 4h2v2h-2zM7 8H1v2h6zM1 10h1v1H1zM3 10h1v1H3zm1-1h1v1H4zM1 9h1v1H1zm2 1h1v1H3zm-2 1h1v1H1zM1 12h1v1H1zM3 12h1v1H3zm-2 1h1v1H1zM1 14h1v1H1zM3 14h1v1H3zM4 13h1v1H4z" />
-                                      <path d="M7 10h2v2H7z" />
-                                      <path d="M10 8h6v2h-6zM8 9h1v1H8zm-1-1h1v1H7zm1 2h1v1H8zm1-1h1v1H9z" />
-                                      <path d="M10 10h1v1h-1zM9 12h1v1H9zm1 1h1v1h-1zm-1 1h1v1H9zM8 14h1v1H8zm1-1h1v1H9zm1-1h1v1h-1zm2-1h1v1h-1zm-1-1h1v1h-1z" />
-                                      <path d="M13 10h1v1h-1z" />
+                                      <rect
+                                        x="5"
+                                        y="2"
+                                        width="14"
+                                        height="20"
+                                        rx="2"
+                                        ry="2"
+                                      />
+                                      <line x1="12" y1="18" x2="12.01" y2="18" />
                                     </svg>
-                                    <span className="text-primary font-mono text-xs">
-                                      MOBILE
+                                    <span className="text-xs font-medium text-primary/70">
+                                      Mobile
                                     </span>
                                   </div>
                                 )}
@@ -684,8 +709,8 @@ export default function SessionPage() {
                     </div>
                   </div>
 
-                  {/* Middle Column - Monitor */}
-                  <div className="hidden xl:block w-80 flex-shrink-0 min-h-0">
+                  {/* Monitor */}
+                  <div className="w-full lg:w-80 shrink-0 min-h-0 order-2 lg:order-2 flex flex-col shadow-2xl shadow-black/30">
                     <ChatWindow
                       messages={filteredMessages}
                       inputValue={inputValue}
@@ -699,7 +724,7 @@ export default function SessionPage() {
             )}
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }
