@@ -28,12 +28,6 @@ A key problem identified with the evaluation of remote viewing sessions is that 
 
 #### TO DO:
 
-- Perform evaluation and robust target feedback to viewer on session complete
-  - Flag succesful matches to target and note particular false impressions not present in the target
-  - Provide level of accuracy with penalties for false impressions
-  - Side by side comparison of modelled target with actual target
-- Align session stages better with RV protocol
-- Automate session routing and termination through AI Monitor barge
 - Integrate Google Maps API _(Places API)_ for Coordinate RV
 
 ## Getting Started
