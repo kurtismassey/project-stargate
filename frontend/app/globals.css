@@ -39,7 +39,11 @@ body {
   background: linear-gradient(135deg, var(--background-dark) 0%, #34495e 100%);
   background-attachment: fixed;
   color: var(--foreground);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 /* Refined scrollbar */
@@ -69,7 +73,8 @@ body {
 
 /* Animation keyframes */
 @keyframes pulse-subtle {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -179,7 +184,11 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--primary) 0%,
+    var(--primary-dark) 100%
+  );
   color: var(--secondary);
   border: none;
   box-shadow: var(--shadow-sm);
@@ -308,5 +317,10 @@ body {
 /* Section divider */
 .divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, var(--border-strong) 50%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-strong) 50%,
+    transparent 100%
+  );
 }

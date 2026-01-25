@@ -145,7 +145,9 @@ export default function AnalysisReport({
                         width={600}
                         height={400}
                         className={`w-full h-full ${
-                          imageFit === "cover" ? "object-cover" : "object-contain"
+                          imageFit === "cover"
+                            ? "object-cover"
+                            : "object-contain"
                         }`}
                       />
                     ) : (
@@ -169,7 +171,9 @@ export default function AnalysisReport({
                         width={600}
                         height={400}
                         className={`w-full h-full ${
-                          imageFit === "cover" ? "object-cover" : "object-contain"
+                          imageFit === "cover"
+                            ? "object-cover"
+                            : "object-contain"
                         }`}
                       />
                     ) : (

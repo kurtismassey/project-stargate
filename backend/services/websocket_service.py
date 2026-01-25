@@ -139,7 +139,7 @@ async def handle_websocket_session(websocket: WebSocket):
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session:
             statement = select(SessionModel).options(
-                selectinload(SessionModel.analysis),
+                selectinload(SessionModel.analysis),  # type: ignore
                 selectinload(SessionModel.chat),  # type: ignore
                 selectinload(SessionModel.drawings),  # type: ignore
             )

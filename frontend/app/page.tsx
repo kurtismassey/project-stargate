@@ -98,7 +98,7 @@ function StatsBar({ sessions }: { sessions: any[] }) {
     <div className="w-full bg-[#f4d03f] border-b border-[#f1c40f]/50 relative overflow-hidden">
       {/* Subtle pattern overlay for differentiation */}
       <div className="absolute inset-0 opacity-5 bg-[linear-gradient(45deg,transparent_25%,rgba(0,0,0,.1)_50%,transparent_75%,rgba(0,0,0,.1)_100%)] bg-size-[20px_20px]" />
-      
+
       <div className="relative overflow-x-auto">
         <div className="flex items-center justify-center gap-0 text-xs min-w-max px-2 sm:px-6 py-2 sm:py-3">
           {/* Overall Performance (Figure of Merit equivalent) */}
@@ -108,7 +108,9 @@ function StatsBar({ sessions }: { sessions: any[] }) {
             </span>
             <span className="font-bold text-primary text-xs sm:text-sm">
               {stats.avgScore}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">/7</span>
+              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">
+                /7
+              </span>
             </span>
           </div>
 
@@ -121,7 +123,9 @@ function StatsBar({ sessions }: { sessions: any[] }) {
             </span>
             <span className="font-bold text-green-600 text-xs sm:text-sm">
               {stats.bestScore}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">/7</span>
+              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">
+                /7
+              </span>
             </span>
           </div>
 
@@ -182,7 +186,9 @@ function StatsBar({ sessions }: { sessions: any[] }) {
             </span>
             <span className="font-bold text-primary text-xs sm:text-sm">
               {stats.recentAvg}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">/7</span>
+              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">
+                /7
+              </span>
               {stats.trend && (
                 <span
                   className={`ml-1 sm:ml-1.5 text-sm sm:text-base ${

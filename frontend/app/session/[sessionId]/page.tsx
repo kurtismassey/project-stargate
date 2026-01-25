@@ -562,7 +562,10 @@ export default function SessionPage() {
                         width={1200}
                         height={700}
                         className="rounded-lg cursor-crosshair w-full h-full touch-none shadow-inner"
-                        style={{ touchAction: "none", backgroundColor: "#FFFADC" }}
+                        style={{
+                          touchAction: "none",
+                          backgroundColor: "#FFFADC",
+                        }}
                         onMouseDown={startDrawing}
                         onMouseUp={stopDrawing}
                         onMouseLeave={stopDrawing}
@@ -647,7 +650,9 @@ export default function SessionPage() {
                                 className={`status-dot ${sessionConnected ? "status-dot-connected" : "status-dot-disconnected"}`}
                               />
                               <span className="text-xs font-medium text-primary/70">
-                                {sessionConnected ? "Connected" : "Disconnected"}
+                                {sessionConnected
+                                  ? "Connected"
+                                  : "Disconnected"}
                               </span>
                             </div>
                           </div>
@@ -694,7 +699,12 @@ export default function SessionPage() {
                                         rx="2"
                                         ry="2"
                                       />
-                                      <line x1="12" y1="18" x2="12.01" y2="18" />
+                                      <line
+                                        x1="12"
+                                        y1="18"
+                                        x2="12.01"
+                                        y2="18"
+                                      />
                                     </svg>
                                     <span className="text-xs font-medium text-primary/70">
                                       Mobile

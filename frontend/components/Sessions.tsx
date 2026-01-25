@@ -12,12 +12,11 @@ import { useMemo } from "react";
 
 const TOTAL_STAGES = 6;
 
-function StageList({
-  stagesWithContent,
-}: {
-  stagesWithContent?: Stage[];
-}) {
-  const allStages = Array.from({ length: TOTAL_STAGES }, (_, i) => (i + 1) as Stage);
+function StageList({ stagesWithContent }: { stagesWithContent?: Stage[] }) {
+  const allStages = Array.from(
+    { length: TOTAL_STAGES },
+    (_, i) => (i + 1) as Stage,
+  );
 
   return (
     <div className="flex items-center gap-0 w-full min-w-0">
@@ -41,7 +40,8 @@ function StageList({
             {!isLast && (
               <div
                 className={`h-px w-2 shrink-0 ${
-                  hasContent && stagesWithContent?.includes((stage + 1) as Stage)
+                  hasContent &&
+                  stagesWithContent?.includes((stage + 1) as Stage)
                     ? "bg-secondary/30"
                     : "bg-secondary/10"
                 }`}
@@ -127,71 +127,71 @@ function SessionCard({
         <div className="p-5 pr-5 group-hover:pr-14 transition-all duration-300">
           {/* Header row */}
           <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-base font-semibold text-secondary">
-                {formatDate(session.createdAt)}
-              </span>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base font-semibold text-secondary">
+                  {formatDate(session.createdAt)}
+                </span>
+              </div>
+              <div className="text-[10px] text-secondary/50 font-mono">
+                {session.id.slice(0, 8)}...{session.id.slice(-4)}
+              </div>
             </div>
-            <div className="text-[10px] text-secondary/50 font-mono">
-              {session.id.slice(0, 8)}...{session.id.slice(-4)}
+          </div>
+
+          {/* Stages */}
+          <div className="mb-4 min-w-0">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-medium text-secondary/60 uppercase tracking-wide">
+                CRV Stages
+              </span>
+              {isActive && (
+                <span className="text-[10px] font-medium text-secondary/80 whitespace-nowrap">
+                  Current: {formatStageLabel(session.stage)}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <StageList stagesWithContent={session.stagesWithContent} />
             </div>
           </div>
-        </div>
 
-        {/* Stages */}
-        <div className="mb-4 min-w-0">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-medium text-secondary/60 uppercase tracking-wide">
-              CRV Stages
-            </span>
-            {isActive && (
-              <span className="text-[10px] font-medium text-secondary/80 whitespace-nowrap">
-                Current: {formatStageLabel(session.stage)}
-              </span>
-            )}
-          </div>
-          <div className="min-w-0">
-            <StageList stagesWithContent={session.stagesWithContent} />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <span
-            className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-              isActive ? "text-green-400" : "text-secondary/60"
-            }`}
-          >
+          {/* Footer */}
+          <div className="flex items-center justify-between">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-green-400" : "bg-secondary/40"}`}
-            />
-            {isActive
-              ? "Active"
-              : session.status === "assessing"
-                ? "Assessing"
-                : "Analysed"}
-          </span>
-
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-secondary/60 group-hover:text-secondary transition-colors">
-            Open
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="transition-transform group-hover:translate-x-0.5"
+              className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                isActive ? "text-green-400" : "text-secondary/60"
+              }`}
             >
-              <path d="M5 12h14" />
-              <path d="m12 5 7 7-7 7" />
-            </svg>
-          </span>
-        </div>
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-green-400" : "bg-secondary/40"}`}
+              />
+              {isActive
+                ? "Active"
+                : session.status === "assessing"
+                  ? "Assessing"
+                  : "Analysed"}
+            </span>
+
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-secondary/60 group-hover:text-secondary transition-colors">
+              Open
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="transition-transform group-hover:translate-x-0.5"
+              >
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </span>
+          </div>
         </div>
       </div>
     </Link>
@@ -261,7 +261,8 @@ export default function Sessions({ sessions }: { sessions: Session[] }) {
             No sessions yet
           </h2>
           <p className="text-sm text-primary/40 text-center max-w-xs">
-            Use the "New Session" button in the header to create your first remote viewing session.
+            Use the &quot;New Session&quot; button in the header to create your
+            first remote viewing session.
           </p>
         </div>
       ) : (
