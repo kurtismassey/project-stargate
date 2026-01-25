@@ -6,7 +6,34 @@ on:
       - main
 
 jobs:
-  quality-checks:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend && npm install
+
+      - name: Format frontend
+        run: |
+          cd frontend && npm run format
+
+      - name: Lint frontend
+        run: |
+          cd frontend && npm run lint
+
+      - name: Test frontend
+        run: |
+          cd frontend && npm run test
+
+  backend:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -17,11 +44,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -31,32 +53,16 @@ jobs:
         run: |
           uv sync --group dev
 
-      - name: Install frontend dependencies
-        run: |
-          cd frontend && npm install
-
       - name: Format backend
         run: |
           uv run ruff check backend/
           uv run ruff format backend/
-
-      - name: Format frontend
-        run: |
-          cd frontend && npm run format
 
       - name: Lint backend
         run: |
           uv run ruff check backend/
           uv run mypy backend/
 
-      - name: Lint frontend
-        run: |
-          cd frontend && npm run lint
-
       - name: Test backend
         run: |
           cd backend && PYTHONPATH=. uv run pytest tests/ -v
-
-      - name: Test frontend
-        run: |
-          cd frontend && npm run test
