@@ -24,6 +24,7 @@ Project Stargate AI is an open source project based on the research work by the 
 
 A key problem identified with the evaluation of remote viewing sessions is that the data is returned in the format of sketches and natural language. Proving to be a rather problematic to adequately run automated evaluation on, with early work done into fuzzy matching response data. The advancement of Large language models (LLMs) and more particularly multimodal large language models (MLLMs) (such as [_Google Gemini_](https://cloud.google.com/use-cases/multimodal-ai?hl=en#generate-text-code-video-audio-and-images-from-virtually-any-content-type)) means that we are now in an even better position to extract insight from these particular forms of data.&nbsp;
 
+<div align="center"><img src="./resources/base.png" width="100%"></div>
 <div align="center"><img src="./resources/example.png" width="100%"></div>
 
 #### TO DO:
