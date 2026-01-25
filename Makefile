@@ -3,7 +3,7 @@ install:
 
 backend-install:
 	@echo "Installing backend..."
-	@uv sync
+	@uv sync --dev
 
 frontend-install:
 	@echo "Installing frontend..."
@@ -48,7 +48,9 @@ test:
 	@npx concurrently -n backend,frontend -c "blue,green" "$(MAKE) backend-test" "$(MAKE) frontend-test"
 
 backend-test:
-	@cd backend && PYTHONPATH=. uv run pytest tests/ -v
+	@echo "Testing backend..."
+	@PYTHONPATH=backend uv run pytest backend/tests/ -v
 
 frontend-test:
+	@echo "Testing frontend..."
 	@cd frontend && npm run test
