@@ -22,13 +22,14 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
 
       - name: Install backend dependencies
         run: |
-          poetry install
+          uv sync --group dev
 
       - name: Install frontend dependencies
         run: |
@@ -36,8 +37,8 @@ jobs:
 
       - name: Format backend
         run: |
-          poetry run ruff check backend/
-          poetry run ruff format backend/
+          uv run ruff check backend/
+          uv run ruff format backend/
 
       - name: Format frontend
         run: |
@@ -45,8 +46,8 @@ jobs:
 
       - name: Lint backend
         run: |
-          poetry run ruff check backend/
-          poetry run mypy backend/
+          uv run ruff check backend/
+          uv run mypy backend/
 
       - name: Lint frontend
         run: |
@@ -54,7 +55,7 @@ jobs:
 
       - name: Test backend
         run: |
-          cd backend && PYTHONPATH=. poetry run pytest tests/ -v
+          cd backend && PYTHONPATH=. uv run pytest tests/ -v
 
       - name: Test frontend
         run: |
