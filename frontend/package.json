@@ -11,6 +11,8 @@
     "test": "echo \"No tests\""
   },
   "dependencies": {
+    "js-yaml": "^4.1.1",
+    "mdast-util-to-hast": "^13.2.1",
     "next": "^16.1.4",
     "qrcode.react": "^4.2.0",
     "react": "19.1.0",
@@ -26,7 +28,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.4",
+    "eslint-config-next": "^16.1.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
