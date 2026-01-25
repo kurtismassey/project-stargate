@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { Session } from "@/types/session";
-import { formatDate, getStatusColour } from "@/utils/formatting";
+import {
+  formatDate,
+  getStatusColour,
+  getSessionPath,
+} from "@/utils/formatting";
 import { useWebSocket } from "./WebSocketProvider";
 
 export default function Sessions({ sessions }: { sessions: Session[] }) {
@@ -54,44 +58,55 @@ export default function Sessions({ sessions }: { sessions: Session[] }) {
           </div>
         ) : (
           <div className="space-y-3">
-            {sessions.map((session) => (
-              <Link
-                key={session.id}
-                href={`/session/${session.id}`}
-                className="block group"
-              >
-                <div className="bg-secondary border border-primary p-4 group-hover:bg-opacity-90 transition-all duration-200 rounded cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="text-primary font-mono text-base font-bold">
-                        {formatDate(session.createdAt)}
+            {sessions
+              .reduce<Array<{ session: Session; sessionPath: string }>>(
+                (acc, session) => {
+                  const sessionPath = getSessionPath(session.id);
+                  if (sessionPath !== null) {
+                    acc.push({ session, sessionPath });
+                  }
+                  return acc;
+                },
+                []
+              )
+              .map(({ session, sessionPath }) => (
+                <Link
+                  key={session.id}
+                  href={sessionPath}
+                  className="block group"
+                >
+                  <div className="bg-secondary border border-primary p-4 group-hover:bg-opacity-90 transition-all duration-200 rounded cursor-pointer">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="text-primary font-mono text-base font-bold">
+                          {formatDate(session.createdAt)}
+                        </div>
+                        <div className="text-primary font-mono text-[10px] opacity-50 mb-2">
+                          ID: {session.id}
+                        </div>
+                        <div
+                          className={`text-xs font-mono px-2 py-0.5 rounded w-fit ${getStatusColour(
+                            session.status,
+                          )}`}
+                        >
+                          {session.status.toUpperCase()}
+                        </div>
                       </div>
-                      <div className="text-primary font-mono text-[10px] opacity-50 mb-2">
-                        ID: {session.id}
+                      <div className="flex items-center space-x-2">
+                        <div className="bg-primary text-secondary px-3 py-1 text-xs font-mono rounded">
+                          ACCESS
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteSession(e, session.id)}
+                          className="bg-red-500 text-white py-1 text-xs font-mono rounded hover:bg-red-600 transition-all duration-300 ease-in-out opacity-0 group-hover:opacity-100 w-0 group-hover:w-20 px-0 group-hover:px-3 overflow-hidden whitespace-nowrap"
+                        >
+                          DELETE
+                        </button>
                       </div>
-                      <div
-                        className={`text-xs font-mono px-2 py-0.5 rounded w-fit ${getStatusColour(
-                          session.status,
-                        )}`}
-                      >
-                        {session.status.toUpperCase()}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="bg-primary text-secondary px-3 py-1 text-xs font-mono rounded">
-                        ACCESS
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteSession(e, session.id)}
-                        className="bg-red-500 text-white py-1 text-xs font-mono rounded hover:bg-red-600 transition-all duration-300 ease-in-out opacity-0 group-hover:opacity-100 w-0 group-hover:w-20 px-0 group-hover:px-3 overflow-hidden whitespace-nowrap"
-                      >
-                        DELETE
-                      </button>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
           </div>
         )}
       </div>

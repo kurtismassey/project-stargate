@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useWebSocket } from "@/components/WebSocketProvider";
 import TitleBar from "@/components/TitleBar";
 import ChatWindow from "@/components/ChatWindow";
@@ -13,10 +13,17 @@ import { formatDate, formatStageLabel } from "@/utils/formatting";
 import { ChatMessage, Role } from "@/types/chat";
 import { Drawing } from "@/types/drawing";
 import { SessionAnalysis } from "@/types/analysis";
+import { validate } from "uuid";
 
 export default function SessionPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
+  const router = useRouter();
+
+  if (!validate(sessionId)) {
+    router.push("/");
+  }
+
   const {
     sessionConnected,
     connectSessionWebSocket,
@@ -74,7 +81,7 @@ export default function SessionPage() {
     if (typeof window !== "undefined") {
       const protocol = window.location.protocol;
       const host = window.location.host;
-      const url = `${protocol}//${host}/session/${sessionId}`;
+      const url = `${protocol}//${host}/session/${encodeURIComponent(sessionId)}`;
       setMobileUrl(url);
     }
   }, [sessionId]);

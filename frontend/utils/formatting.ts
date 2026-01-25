@@ -1,4 +1,12 @@
 import { Stage } from "@/types/session";
+import { validate } from "uuid";
+
+export function getSessionPath(sessionId: string): string | null {
+  if (!validate(sessionId)) {
+    return null;
+  }
+  return `/session/${sessionId}`;
+}
 
 /**
  * Format a date to a string
