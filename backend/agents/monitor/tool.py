@@ -30,7 +30,7 @@ async def get_monitor_response(
     )
 
     prompt_path = Path(__file__).parent / "prompt.txt"
-    with open(prompt_path, "r") as f:
+    with open(prompt_path, "r", encoding="utf-8") as f:
         prompt_template = f.read()
 
     monitor = llm.with_structured_output(MonitorResponse)

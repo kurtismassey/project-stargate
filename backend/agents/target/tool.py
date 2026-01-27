@@ -85,7 +85,7 @@ async def select_random_target_image() -> str:
     image_path = targets_dir / selected_file
 
     # Read the image file and compress it
-    with open(image_path, "rb") as image_file:
+    with open(image_path, "rb", encoding="utf-8") as image_file:
         image_data = image_file.read()
         # Compress the image to reduce token count
         compressed_base64 = compress_image(
@@ -119,7 +119,7 @@ async def generate_target_model_image(
     )
 
     prompt_path = Path(__file__).parent / "prompt.txt"
-    with open(prompt_path, "r") as f:
+    with open(prompt_path, "r", encoding="utf-8") as f:
         prompt_template = f.read()
 
     prompt = prompt_template.format(description=description)
