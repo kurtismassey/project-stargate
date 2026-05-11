@@ -19,7 +19,7 @@ dependencies = [
     "pillow>=10.0.0",
     "tenacity>=8.2.3",
     "pyasn1>=0.6.2",
-    "urllib3>=2.6.3",
+    "urllib3>=2.7.0",
     "greenlet>=3.0.0",
 ]
 
