@@ -1,6 +1,3 @@
-import { Stage } from "./session";
-import { Role } from "./chat";
-
 export enum EventType {
   // Session list messages
   SESSIONS = "sessions",
@@ -23,64 +20,6 @@ export enum EventType {
   // System messages
   HEARTBEAT = "heartbeat",
   ERROR = "error",
-}
-
-export interface ServerChatMessage {
-  id: string;
-  user: string;
-  text: string;
-  timestamp: string;
-  sessionId: string;
-}
-
-export interface DrawMessage {
-  sessionId: string;
-  stageNumber: number;
-  prevX: number;
-  prevY: number;
-  x: number;
-  y: number;
-  color: string;
-}
-
-export interface ClearMessage {
-  sessionId: string;
-  stageNumber: number;
-}
-
-export interface ClientDrawMessage {
-  type: EventType.DRAW;
-  sessionId: string;
-  stageNumber: number;
-  prevX: number;
-  prevY: number;
-  x: number;
-  y: number;
-  color: string;
-}
-
-export interface ClientClearMessage {
-  type: EventType.CLEAR;
-  sessionId: string;
-  stageNumber: number;
-}
-
-export interface ClientSyncStageMessage {
-  type: EventType.SYNC_STAGE;
-  sessionId: string;
-  stageNumber: Stage;
-}
-
-export interface ClientChatMessage {
-  type: EventType.CHAT;
-  user: Role;
-  text: string;
-  stage: Stage;
-}
-
-export interface ClientCompleteSessionMessage {
-  type: EventType.COMPLETE_SESSION;
-  sessionId: string;
 }
 
 export interface SessionMessage {
