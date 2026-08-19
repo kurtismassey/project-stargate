@@ -43,7 +43,22 @@ def get_stages_with_content(session: SessionModel) -> list[int]:
     if session.drawings:
         for drawing in session.drawings:
             stages_with_content.add(drawing.stage.value)
-    return sorted(list(stages_with_content))
+    return sorted(stages_with_content)
+
+
+def session_summary(session: SessionModel, score: float | None) -> dict:
+    """
+    Build the session summary payload broadcast to the session-list clients.
+    """
+    return {
+        "id": str(session.id),
+        "createdAt": session.created_at.isoformat(),
+        "updatedAt": session.updated_at.isoformat(),
+        "status": session.status.value,
+        "stage": session.stage.value,
+        "score": score,
+        "stagesWithContent": get_stages_with_content(session),
+    }
 
 
 async def broadcast_to_session_list(message: str):
@@ -81,20 +96,9 @@ async def _receive_session_list_messages(websocket: WebSocket):
                         result = await db_session.exec(statement)
                         session_with_rels = result.one()
 
-                        session_dict = {
-                            "id": str(session_with_rels.id),
-                            "createdAt": session_with_rels.created_at.isoformat(),
-                            "updatedAt": session_with_rels.updated_at.isoformat(),
-                            "status": session_with_rels.status.value,
-                            "stage": session_with_rels.stage.value,
-                            "score": None,
-                            "stagesWithContent": get_stages_with_content(
-                                session_with_rels
-                            ),
-                        }
                         broadcast_message = {
                             "type": EventType.SESSION_CREATED,
-                            "session": session_dict,
+                            "session": session_summary(session_with_rels, None),
                         }
                         await broadcast_to_session_list(json.dumps(broadcast_message))
                 except Exception as e:
@@ -146,19 +150,10 @@ async def handle_websocket_session(websocket: WebSocket):
             results = await session.exec(statement)
             sessions = results.all()
 
-            sessions_data = []
-            for s in sessions:
-                sessions_data.append(
-                    {
-                        "id": str(s.id),
-                        "createdAt": s.created_at.isoformat(),
-                        "updatedAt": s.updated_at.isoformat(),
-                        "status": s.status.value,
-                        "stage": s.stage.value,
-                        "score": s.analysis.composite_score if s.analysis else None,
-                        "stagesWithContent": get_stages_with_content(s),
-                    }
-                )
+            sessions_data = [
+                session_summary(s, s.analysis.composite_score if s.analysis else None)
+                for s in sessions
+            ]
 
             await websocket.send_text(
                 json.dumps({"type": EventType.SESSIONS, "sessions": sessions_data})
@@ -246,20 +241,11 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                         await db_session.refresh(session)
                         session_dump = session.model_dump()
                         session_drawings = message.get("drawings", [])
-                        stages_with_content = get_stages_with_content(session)
                         await broadcast_to_session_list(
                             json.dumps(
                                 {
                                     "type": EventType.SESSION_UPDATED,
-                                    "session": {
-                                        "id": str(session.id),
-                                        "createdAt": session.created_at.isoformat(),
-                                        "updatedAt": session.updated_at.isoformat(),
-                                        "status": session.status.value,
-                                        "stage": session.stage.value,
-                                        "score": None,
-                                        "stagesWithContent": stages_with_content,
-                                    },
+                                    "session": session_summary(session, None),
                                 }
                             )
                         )
@@ -351,22 +337,14 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                                 db_session.add(session_analysis)
                                 await db_session.commit()
                                 await db_session.refresh(session_analysis)
-                                stages_with_content = get_stages_with_content(
-                                    session_to_complete
-                                )
                                 await broadcast_to_session_list(
                                     json.dumps(
                                         {
                                             "type": EventType.SESSION_UPDATED,
-                                            "session": {
-                                                "id": str(session_to_complete.id),
-                                                "createdAt": session_to_complete.created_at.isoformat(),
-                                                "updatedAt": session_to_complete.updated_at.isoformat(),
-                                                "status": session_to_complete.status.value,
-                                                "stage": session_to_complete.stage.value,
-                                                "score": session_analysis.composite_score,
-                                                "stagesWithContent": stages_with_content,
-                                            },
+                                            "session": session_summary(
+                                                session_to_complete,
+                                                session_analysis.composite_score,
+                                            ),
                                         }
                                     )
                                 )
