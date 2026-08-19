@@ -29,40 +29,27 @@ class ConnectionManager:
             except ValueError:
                 pass
 
-    async def broadcast(self, message: str, session_id: str, exclude: WebSocket):
-        if session_id in self.active_connections:
-            disconnected_connections = []
-            for connection in self.active_connections[session_id]:
-                if connection != exclude:
-                    try:
-                        await connection.send_text(message)
-                    except Exception as e:
-                        logger.info(f"Failed to send message to {connection}: {e}")
-                        disconnected_connections.append(connection)
+    async def broadcast(
+        self, message: str, session_id: str, exclude: WebSocket | None = None
+    ):
+        if session_id not in self.active_connections:
+            return
 
-            # Remove disconnected connections
-            for connection in disconnected_connections:
-                try:
-                    self.active_connections[session_id].remove(connection)
-                except ValueError:
-                    pass
+        disconnected_connections = []
+        for connection in self.active_connections[session_id]:
+            if connection is exclude:
+                continue
+            try:
+                await connection.send_text(message)
+            except Exception as e:
+                logger.info(f"Failed to send message to {connection}: {e}")
+                disconnected_connections.append(connection)
 
-    async def broadcast_to_all(self, message: str, session_id: str):
-        if session_id in self.active_connections:
-            disconnected_connections = []
-            for connection in self.active_connections[session_id]:
-                try:
-                    await connection.send_text(message)
-                except Exception as e:
-                    logger.info(f"Failed to send message to {connection}: {e}")
-                    disconnected_connections.append(connection)
-
-            # Remove disconnected connections
-            for connection in disconnected_connections:
-                try:
-                    self.active_connections[session_id].remove(connection)
-                except ValueError:
-                    pass
+        for connection in disconnected_connections:
+            try:
+                self.active_connections[session_id].remove(connection)
+            except ValueError:
+                pass
 
 
 session_manager = ConnectionManager()

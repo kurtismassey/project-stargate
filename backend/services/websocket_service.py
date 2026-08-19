@@ -202,7 +202,7 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                     broadcast_payload = drawing.model_dump(mode="json")
                     broadcast_payload["type"] = EventType.DRAW
 
-                    await session_manager.broadcast_to_all(
+                    await session_manager.broadcast(
                         json.dumps(broadcast_payload), session_id
                     )
             elif msg_type == EventType.CLEAR:
@@ -299,7 +299,7 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                             "targetImage": target_image_b64,
                             "targetModel": target_model_b64,
                         }
-                        await session_manager.broadcast_to_all(
+                        await session_manager.broadcast(
                             json.dumps(analysis_payload), session_id
                         )
 
@@ -367,7 +367,7 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                             "type": "error",
                             "message": f"Failed to complete session analysis: {str(e)}",
                         }
-                        await session_manager.broadcast_to_all(
+                        await session_manager.broadcast(
                             json.dumps(error_payload), session_id
                         )
             elif msg_type == EventType.SYNC_STAGE:
@@ -419,7 +419,7 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                     broadcast_payload["type"] = EventType.CHAT
                     broadcast_payload["sessionId"] = broadcast_payload.pop("session_id")
 
-                    await session_manager.broadcast_to_all(
+                    await session_manager.broadcast(
                         json.dumps(broadcast_payload), session_id
                     )
 
@@ -447,7 +447,7 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                     broadcast_payload = monitor_message.model_dump(mode="json")
                     broadcast_payload["type"] = EventType.CHAT
                     broadcast_payload["sessionId"] = broadcast_payload.pop("session_id")
-                    await session_manager.broadcast_to_all(
+                    await session_manager.broadcast(
                         json.dumps(broadcast_payload), session_id
                     )
     except json.JSONDecodeError:
