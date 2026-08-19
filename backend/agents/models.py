@@ -1,22 +1,6 @@
 from pydantic import BaseModel, Field
 
 
-class Analysis(BaseModel):
-    """
-    Analysis of a remote viewing session.
-    """
-
-    key_impressions: list[str] = Field(
-        description="Key impressions and themes from the session."
-    )
-    consistency: str = Field(
-        description="Consistency in descriptions throughout the session."
-    )
-    sensory_details: list[str] = Field(description="Notable sensory details.")
-    potential_matches: list[str] = Field(description="Potential matches to the target.")
-    quality_assessment: str = Field(description="Overall session quality assessment.")
-
-
 class StageAnalysis(BaseModel):
     """
     Analysis of a single stage in a remote viewing session.
