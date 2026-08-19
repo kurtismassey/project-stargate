@@ -4,18 +4,18 @@ import LoadingBar from "@/components/LoadingBar";
 import Sessions from "@/components/Sessions";
 import Header from "@/components/Header";
 import { useWebSocket } from "@/components/WebSocketProvider";
+import { Session, SessionStatus } from "@/types/session";
 import { useMemo } from "react";
 
-function StatsBar({ sessions }: { sessions: any[] }) {
+function StatsBar({ sessions }: { sessions: Session[] }) {
   const stats = useMemo(() => {
     const completedSessions = sessions
-      .filter((s) => s.status === "completed" && s.score !== null)
+      .filter((s) => s.status === SessionStatus.COMPLETED && s.score !== null)
       .sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
     const totalSessions = sessions.length;
-    const activeSessions = sessions.filter((s) => s.status === "active").length;
 
     // Average composite score (overall performance)
     const avgScore =
@@ -80,8 +80,6 @@ function StatsBar({ sessions }: { sessions: any[] }) {
     ).length;
 
     return {
-      totalSessions,
-      activeSessions,
       avgScore,
       bestScore,
       scoreRange,
@@ -90,7 +88,6 @@ function StatsBar({ sessions }: { sessions: any[] }) {
       avgStages,
       completionRate,
       fullProtocolSessions,
-      completedCount: completedSessions.length,
     };
   }, [sessions]);
 
