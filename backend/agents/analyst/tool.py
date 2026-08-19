@@ -9,6 +9,8 @@ from core.models.session import Session
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+_PROMPT_TEMPLATE = (Path(__file__).parent / "prompt.txt").read_text(encoding="utf-8")
+
 
 async def analyse_session(
     session: Session,
@@ -34,10 +36,6 @@ async def analyse_session(
         temperature=0.7,
     )
 
-    prompt_path = Path(__file__).parent / "prompt.txt"
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        prompt_template = f.read()
-
     analyst = llm.with_structured_output(SessionAnalysis)
 
     chat_history = "\n".join([f"{m.user}: {m.text}" for m in session.chat])
@@ -45,7 +43,7 @@ async def analyse_session(
         [f"Stage {i + 1}: [Image Data]" for i, d in enumerate(drawings) if d]
     )
 
-    prompt = prompt_template.format(
+    prompt = _PROMPT_TEMPLATE.format(
         input=chat_history,
         drawings_input=drawings_input,
     )
