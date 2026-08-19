@@ -104,7 +104,7 @@ async def _receive_session_list_messages(websocket: WebSocket):
                 except Exception as e:
                     logger.error(f"Error creating session: {e}")
                     error_message = {
-                        "type": "error",
+                        "type": EventType.ERROR,
                         "message": f"Failed to create session: {str(e)}",
                     }
                     await websocket.send_text(json.dumps(error_message))
@@ -364,7 +364,7 @@ async def _receive_messages(websocket: WebSocket, session_id: str):
                                 await db_session.commit()
 
                         error_payload = {
-                            "type": "error",
+                            "type": EventType.ERROR,
                             "message": f"Failed to complete session analysis: {str(e)}",
                         }
                         await session_manager.broadcast(
