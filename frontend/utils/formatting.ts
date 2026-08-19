@@ -60,21 +60,3 @@ const getRomanNumeral = (stageNum: number): string => {
 export const formatStageLabel = (stage: Stage): string => {
   return `Stage ${getRomanNumeral(stage)}`;
 };
-
-/**
- * Get colour class based on session status
- * @param status - Session status
- * @returns Tailwind color class
- */
-export function getStatusColour(status: string): string {
-  switch (status) {
-    case "active":
-      return "badge-success";
-    case "completed":
-      return "badge-info";
-    case "assessing":
-      return "badge-warning";
-    default:
-      return "badge-info";
-  }
-}
