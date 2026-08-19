@@ -85,7 +85,7 @@ async def select_random_target_image() -> str:
     image_path = targets_dir / selected_file
 
     # Read the image file and compress it
-    with open(image_path, "rb", encoding="utf-8") as image_file:
+    with open(image_path, "rb") as image_file:
         image_data = image_file.read()
         # Compress the image to reduce token count
         compressed_base64 = compress_image(
