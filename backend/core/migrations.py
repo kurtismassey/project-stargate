@@ -184,10 +184,7 @@ async def _migration_0003_arv_pairs(engine: AsyncEngine) -> None:
                 )
         else:
             await conn.execute(
-                text(
-                    "ALTER TABLE taskings ADD COLUMN IF NOT EXISTS "
-                    "arv_pair_id UUID"
-                )
+                text("ALTER TABLE taskings ADD COLUMN IF NOT EXISTS arv_pair_id UUID")
             )
 
 

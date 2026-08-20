@@ -172,7 +172,9 @@ class Tasking(SQLModel, table=True):
 
     series_id: UUID | None = Field(default=None, foreign_key="series.id", index=True)
     series_position: int | None = Field(default=None)
-    arv_pair_id: UUID | None = Field(default=None, foreign_key="arv_pairs.id", index=True)
+    arv_pair_id: UUID | None = Field(
+        default=None, foreign_key="arv_pairs.id", index=True
+    )
 
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
     sealed_at: datetime = Field(default_factory=utcnow, nullable=False)

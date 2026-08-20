@@ -288,9 +288,7 @@ async def create_tasking(
         if series is None:
             raise EngineError("series_not_found", "Series not found", 404)
 
-    tasking = await _seal_tasking(
-        db, pool_id, protocol, cue_type, environment, series
-    )
+    tasking = await _seal_tasking(db, pool_id, protocol, cue_type, environment, series)
     await db.commit()
     await db.refresh(tasking)
     return tasking

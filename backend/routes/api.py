@@ -214,7 +214,9 @@ async def _series_bundle(db: AsyncSession, series: Series) -> dict:
     scores = list(
         (
             await db.exec(
-                select(DisplacementScore).where(DisplacementScore.series_id == series.id)
+                select(DisplacementScore).where(
+                    DisplacementScore.series_id == series.id
+                )
             )
         ).all()
     )
