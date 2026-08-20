@@ -1,739 +1,704 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useWebSocket } from "@/components/WebSocketProvider";
-import Header from "@/components/Header";
-import ChatWindow from "@/components/ChatWindow";
-import AnalysisReport from "@/components/AnalysisReport";
-import { QRCodeSVG } from "qrcode.react";
-import { EventType } from "@/types/websocket";
-import { Session, Stage } from "@/types/session";
-import { formatDate, formatStageLabel } from "@/utils/formatting";
-import { ChatMessage, Role } from "@/types/chat";
-import { Drawing } from "@/types/drawing";
-import { SessionAnalysis } from "@/types/analysis";
-import { validate } from "uuid";
+import {
+  api,
+  ApiError,
+  AnalystReportData,
+  FeedbackData,
+  SessionDetail,
+  TranscriptEventData,
+} from "@/lib/api";
+import {
+  canAdvanceStage,
+  canRecord,
+  EventKind,
+  KIND_LABELS,
+  openAol,
+  STAGE_ROMAN,
+} from "@/lib/protocol";
+import {
+  InkSegment,
+  PaperCanvas,
+  PaperCanvasHandle,
+} from "@/components/PaperCanvas";
+import { StageRail } from "@/components/StageRail";
+import { MonitorFeed } from "@/components/MonitorFeed";
+import { JudgingBoard } from "@/components/JudgingBoard";
 
-export default function SessionPage() {
-  const params = useParams();
-  const sessionId = params.sessionId as string;
-  const router = useRouter();
+const PAPER_KINDS: ReadonlySet<EventKind> = new Set([
+  "cue",
+  "ideogram",
+  "ideogram_a",
+  "ideogram_b",
+  "sensory",
+  "dimensional",
+  "aesthetic_impact",
+  "emotional_impact",
+  "tangible",
+  "intangible",
+  "aol",
+  "aol_break",
+  "aol_signal",
+  "sketch",
+  "viewer_note",
+  "break",
+  "stage_advance",
+  "lock",
+]);
 
-  if (!validate(sessionId)) {
-    router.push("/");
-  }
+const TEXT_KIND_ORDER: EventKind[] = [
+  "ideogram_a",
+  "ideogram_b",
+  "sensory",
+  "dimensional",
+  "aesthetic_impact",
+  "emotional_impact",
+  "tangible",
+  "intangible",
+  "aol_signal",
+  "viewer_note",
+];
 
-  const {
-    sessionConnected,
-    connectSessionWebSocket,
-    disconnectSessionWebSocket,
-    sendSessionMessage,
-    sessions,
-  } = useWebSocket();
+function elapsedLabel(startedAt: string, now: number): string {
+  const seconds = Math.max(0, Math.floor((now - Date.parse(startedAt)) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
 
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [penColour, setPenColour] = useState("#000000");
-  const [currentStage, setCurrentStage] = useState<Stage>(Stage.STAGE_I);
-  const [mobileUrl, setMobileUrl] = useState("");
-  const [qrExpanded, setQrExpanded] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [drawingHistory, setDrawingHistory] = useState<Drawing[]>([]);
-  const [session, setSession] = useState<Session | null>(null);
-  const [analysisReport, setAnalysisReport] = useState<SessionAnalysis | null>(
-    null,
-  );
-  const [targetImage, setTargetImage] = useState<string | null>(null);
-  const [targetModel, setTargetModel] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [drawingHistoryLoaded, setDrawingHistoryLoaded] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
-  const stageCanvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+function PaperEntry({ event }: { event: TranscriptEventData }) {
+  const stageTag = event.stage ? `S${STAGE_ROMAN[event.stage]}` : "";
+  const text = String(event.payload.text ?? "");
+  const image = event.payload.imageB64 as string | undefined;
 
-  useEffect(() => {
-    if (sessions && sessionId) {
-      const currentSession = sessions.find((s) => s.id === sessionId);
-      if (currentSession) {
-        setSession(currentSession);
-      }
-    }
-  }, [sessions, sessionId]);
-
-  useEffect(() => {
-    if (!session) {
-      setIsLoading(true);
-      return;
-    }
-
-    if (session.status === "active") {
-      setIsLoading(!drawingHistoryLoaded);
-      return;
-    }
-
-    if (session.status === "completed" || session.status === "assessing") {
-      setIsLoading(!analysisReport || !drawingHistoryLoaded);
-    }
-  }, [session, analysisReport, drawingHistoryLoaded]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const protocol = window.location.protocol;
-      const host = window.location.host;
-      const url = `${protocol}//${host}/session/${encodeURIComponent(sessionId)}`;
-      setMobileUrl(url);
-    }
-  }, [sessionId]);
-
-  // Connect to session WebSocket when component mounts
-  useEffect(() => {
-    console.log(`SessionPage mounting, connecting to session: ${sessionId}`);
-    connectSessionWebSocket(sessionId);
-
-    // Listen for session messages
-    const handleSessionMessage = (event: CustomEvent) => {
-      const data = event.detail;
-      switch (data.type) {
-        case EventType.SESSION_CONNECTED:
-          setCurrentStage(data.currentStage);
-          break;
-        case EventType.DRAW:
-          setDrawingHistory((prev) => [...prev, data]);
-          break;
-        case EventType.CLEAR:
-          clearCanvas();
-          setDrawingHistory((prev) =>
-            prev.filter((stroke) => stroke.stage !== data.stageNumber),
-          );
-          break;
-        case EventType.SYNC_STAGE:
-          setCurrentStage(data.stageNumber);
-          break;
-        case EventType.CHAT_HISTORY:
-          setMessages(data.history || []);
-          break;
-        case EventType.CHAT:
-          setMessages((prevMessages) => {
-            const existingMessageIndex = prevMessages.findIndex(
-              (msg) => msg.id === data.id,
-            );
-
-            if (existingMessageIndex !== -1) {
-              const newMessages = [...prevMessages];
-              newMessages[existingMessageIndex] = data;
-              return newMessages;
-            } else {
-              return [...prevMessages, data];
-            }
-          });
-          break;
-        case EventType.DRAWING_HISTORY:
-          setDrawingHistory(data.history || []);
-          setDrawingHistoryLoaded(true);
-          break;
-        case EventType.SESSION_ANALYSIS:
-          setAnalysisReport(data.analysis);
-          setTargetImage(data.targetImage);
-          setTargetModel(data.targetModel);
-          break;
-      }
-    };
-
-    window.addEventListener(
-      "sessionMessage",
-      handleSessionMessage as EventListener,
+  if (event.kind === "cue") {
+    return (
+      <div className="py-3 border-b border-[rgba(84,74,50,0.2)]">
+        <span className="mono text-[10px] uppercase tracking-widest opacity-50">
+          Cue
+        </span>
+        <div className="mono text-xl tracking-[0.25em] mt-1">
+          {String(event.payload.cue ?? "")}
+        </div>
+      </div>
     );
+  }
+  if (event.kind === "stage_advance") {
+    return (
+      <div className="py-2 mono text-[10px] uppercase tracking-widest opacity-50">
+        Stage {STAGE_ROMAN[Number(event.payload.to)]} begins
+      </div>
+    );
+  }
+  if (event.kind === "lock") {
+    return (
+      <div className="py-2 mono text-[10px] uppercase tracking-widest opacity-60">
+        Session locked. Transcript closed.
+      </div>
+    );
+  }
+  if (event.kind === "ideogram" || event.kind === "sketch") {
+    return (
+      <div className="py-2 fade-up">
+        <span className="mono text-[10px] uppercase tracking-widest opacity-50">
+          {stageTag} {KIND_LABELS[event.kind]}
+        </span>
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={image}
+            alt={KIND_LABELS[event.kind]}
+            className="mt-1 max-h-44 rounded border border-[rgba(84,74,50,0.25)] bg-white/40"
+          />
+        ) : (
+          <span className="ml-2 opacity-60 text-[12px]">(ink)</span>
+        )}
+      </div>
+    );
+  }
+  const isAol = event.kind === "aol" || event.kind === "aol_break";
+  return (
+    <div className="py-1.5 flex gap-3 items-baseline fade-up">
+      <span
+        className={`mono text-[10px] uppercase tracking-widest w-28 shrink-0 ${
+          isAol ? "text-[#a06b1f]" : "opacity-50"
+        }`}
+      >
+        {stageTag} {KIND_LABELS[event.kind] ?? event.kind}
+      </span>
+      <span className={`text-[14px] ${isAol ? "text-[#a06b1f] italic" : ""}`}>
+        {event.kind === "aol_break" && !text ? "set aside" : text}
+        {event.kind === "break" ? ` (${String(event.payload.reason ?? "break")})` : ""}
+      </span>
+    </div>
+  );
+}
 
-    return () => {
-      console.log(
-        `SessionPage unmounting, disconnecting from session: ${sessionId}`,
-      );
-      disconnectSessionWebSocket();
-      window.removeEventListener(
-        "sessionMessage",
-        handleSessionMessage as EventListener,
-      );
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+export default function ChamberPage() {
+  const params = useParams<{ sessionId: string }>();
+  const router = useRouter();
+  const sessionId = params.sessionId;
+
+  const [session, setSession] = useState<SessionDetail | null>(null);
+  const [events, setEvents] = useState<TranscriptEventData[]>([]);
+  const [entry, setEntry] = useState("");
+  const [entryKind, setEntryKind] = useState<EventKind>("sensory");
+  const [refusal, setRefusal] = useState("");
+  const [feedback, setFeedback] = useState<FeedbackData | null>(null);
+  const [reports, setReports] = useState<AnalystReportData[]>([]);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [confirmLock, setConfirmLock] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  const canvasRef = useRef<PaperCanvasHandle>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  const paperEndRef = useRef<HTMLDivElement>(null);
+
+  const eventViews = useMemo(
+    () => events.map((event) => ({ kind: event.kind, stage: event.stage })),
+    [events],
+  );
+  const locked = session != null && session.status !== "active";
+  const protocol = session?.tasking.protocol ?? "crv";
+  const stage = session?.currentStage ?? null;
+  const aolOpen = openAol(eventViews);
+  const inSeries = session?.tasking.seriesId != null;
+
+  const mergeEvent = useCallback((incoming: TranscriptEventData) => {
+    setEvents((previous) => {
+      if (previous.some((event) => event.id === incoming.id)) return previous;
+      return [...previous, incoming].sort((a, b) => a.seq - b.seq);
+    });
+  }, []);
+
+  const load = useCallback(async () => {
+    try {
+      const detail = await api.getSession(sessionId);
+      setSession(detail);
+      setEvents(detail.events);
+      const health = await api.health();
+      setAiEnabled(health.aiEnabled);
+      if (detail.status !== "active") {
+        const analysis = await api.listAnalysis(sessionId);
+        setReports(analysis.reports);
+      }
+    } catch {
+      setRefusal("Session unreachable");
+    }
   }, [sessionId]);
 
-  const isReadOnly = useMemo(() => {
-    if (!session) return true;
-    return session.status !== "active";
-  }, [session]);
-
-  const drawReceivedStroke = useCallback(
-    (data: {
-      x: number;
-      y: number;
-      prevX: number;
-      prevY: number;
-      color: string;
-    }) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const context = canvas.getContext("2d");
-      if (!context) return;
-
-      context.lineWidth = 2;
-      context.lineCap = "round";
-      context.strokeStyle = data.color;
-
-      const x = data.x * canvas.width;
-      const y = data.y * canvas.height;
-
-      context.beginPath();
-      context.moveTo(data.prevX * canvas.width, data.prevY * canvas.height);
-      context.lineTo(x, y);
-      context.stroke();
-    },
-    [],
-  );
+  useEffect(() => {
+    load();
+  }, [load]);
 
   useEffect(() => {
-    if (isReadOnly && analysisReport) {
-      stageCanvasRefs.current.forEach((canvas, index) => {
-        const stage = index + 1;
-        if (!canvas) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#FFFADC";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        drawingHistory
-          .filter((stroke) => stroke.stage === stage)
-          .forEach((stroke) => {
-            const data = {
-              ...stroke,
-              prevX: stroke.prev_x,
-              prevY: stroke.prev_y,
-            };
-            ctx.lineWidth = 2;
-            ctx.lineCap = "round";
-            ctx.strokeStyle = data.color;
-            ctx.beginPath();
-            ctx.moveTo(data.prevX * canvas.width, data.prevY * canvas.height);
-            ctx.lineTo(data.x * canvas.width, data.y * canvas.height);
-            ctx.stroke();
-          });
-      });
-    }
-  }, [isReadOnly, analysisReport, drawingHistory]);
-
-  const clearCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#FFFADC";
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isReadOnly) {
-        // Draw on all stage canvases for completed view
-        stageCanvasRefs.current.forEach((canvas, index) => {
-          const stage = index + 1;
-          if (!canvas) return;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
+    const socket = new WebSocket(`/ws/chamber/${sessionId}`);
+    socketRef.current = socket;
+    socket.onmessage = (message) => {
+      try {
+        const frame = JSON.parse(message.data);
+        if (frame.type === "event" && frame.event) {
+          mergeEvent(frame.event as TranscriptEventData);
+        } else if (frame.type === "session" && frame.session) {
+          setSession((previous) =>
+            previous ? { ...previous, ...frame.session } : previous,
+          );
+        } else if (frame.type === "ink" && frame.segment) {
+          canvasRef.current?.drawRemoteSegment(frame.segment as InkSegment);
+        } else if (frame.type === "ink_clear") {
+          canvasRef.current?.clear();
+        }
+      } catch {
+        // Ignore malformed frames.
+      }
+    };
+    return () => {
+      socketRef.current = null;
+      socket.close();
+    };
+  }, [sessionId, mergeEvent]);
 
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = "#FFFADC";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+  useEffect(() => {
+    paperEndRef.current?.scrollIntoView({ block: "nearest" });
+  }, [events.length]);
 
-          drawingHistory
-            .filter((stroke) => stroke.stage === stage)
-            .forEach((stroke) => {
-              const data = {
-                ...stroke,
-                prevX: stroke.prev_x,
-                prevY: stroke.prev_y,
-              };
-              ctx.lineWidth = 2;
-              ctx.lineCap = "round";
-              ctx.strokeStyle = data.color;
-              ctx.beginPath();
-              ctx.moveTo(data.prevX * canvas.width, data.prevY * canvas.height);
-              ctx.lineTo(data.x * canvas.width, data.y * canvas.height);
-              ctx.stroke();
-            });
-        });
-      } else {
-        // Draw on the main canvas for active view
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const context = canvas.getContext("2d");
-        if (!context) return;
+  const refreshSession = useCallback(async () => {
+    const detail = await api.getSession(sessionId);
+    setSession(detail);
+    setEvents(detail.events);
+  }, [sessionId]);
 
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle = "#FFFADC";
-        context.fillRect(0, 0, canvas.width, canvas.height);
+  const record = async (kind: EventKind, payload: Record<string, unknown>) => {
+    setBusy(true);
+    setRefusal("");
+    try {
+      const result = await api.appendEvent(sessionId, kind, payload);
+      mergeEvent(result.event);
+      result.monitorEvents.forEach(mergeEvent);
+      if (kind === "aol" || kind === "break") {
+        await refreshSession();
+      }
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setRefusal(error.message);
+      }
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
 
-        drawingHistory
-          .filter((stroke) => stroke.stage === currentStage)
-          .forEach((stroke) => {
-            drawReceivedStroke({
-              ...stroke,
-              prevX: stroke.prev_x,
-              prevY: stroke.prev_y,
-            });
-          });
+  const sendInk = (segment: InkSegment) => {
+    const socket = socketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "ink", segment }));
+    }
+  };
+
+  const commitInk = async (kind: "ideogram" | "sketch") => {
+    const canvas = canvasRef.current;
+    if (!canvas || canvas.isEmpty()) {
+      setRefusal("The pad is blank. Objectify on paper first.");
+      return;
+    }
+    const done = await record(kind, {
+      imageB64: canvas.exportPNG(),
+      strokes: canvas.getStrokes(),
+    });
+    if (done) {
+      canvas.clear();
+      const socket = socketRef.current;
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "ink_clear" }));
       }
     }
-  }, [isLoading, isReadOnly, currentStage, drawingHistory, drawReceivedStroke]);
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true);
-    lastPointRef.current = null;
-    draw(e);
   };
 
-  const stopDrawing = () => {
-    setIsDrawing(false);
-    lastPointRef.current = null;
+  const submitEntry = async () => {
+    if (!entry.trim()) return;
+    const done = await record(entryKind, { text: entry.trim() });
+    if (done) setEntry("");
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || isReadOnly) return;
+  const declareAol = async () => {
+    const text = entry.trim() || "analytic overlay";
+    const done = await record("aol", { text });
+    if (done) setEntry("");
+  };
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
-    context.globalCompositeOperation = "source-over";
-    context.lineWidth = 2;
-    context.lineCap = "round";
-    context.strokeStyle = penColour;
-
-    if (lastPointRef.current) {
-      context.beginPath();
-      context.moveTo(lastPointRef.current.x, lastPointRef.current.y);
-      context.lineTo(x, y);
-      context.stroke();
-
-      // Send drawing data via WebSocket
-      sendSessionMessage({
-        type: EventType.DRAW,
-        sessionId,
-        stageNumber: currentStage,
-        prevX: lastPointRef.current.x / canvas.width,
-        prevY: lastPointRef.current.y / canvas.height,
-        x: x / canvas.width,
-        y: y / canvas.height,
-        color: penColour,
-      });
+  const advance = async () => {
+    setBusy(true);
+    setRefusal("");
+    try {
+      await api.advanceStage(sessionId);
+      await refreshSession();
+    } catch (error) {
+      if (error instanceof ApiError) setRefusal(error.message);
+    } finally {
+      setBusy(false);
     }
-
-    lastPointRef.current = { x, y };
   };
 
-  const handleStageChange = (stage: Stage) => {
-    setCurrentStage(stage);
-    sendSessionMessage({
-      type: EventType.SYNC_STAGE,
-      sessionId,
-      stageNumber: stage,
-    });
+  const lock = async () => {
+    if (!confirmLock) {
+      setConfirmLock(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.lockSession(sessionId);
+      setConfirmLock(false);
+      await refreshSession();
+    } catch (error) {
+      if (error instanceof ApiError) setRefusal(error.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleClearCanvas = () => {
-    if (isReadOnly) return;
-    clearCanvas();
-    setDrawingHistory((prev) =>
-      prev.filter((stroke) => stroke.stage !== currentStage),
+  const breakSeal = async () => {
+    setBusy(true);
+    try {
+      const data = await api.getFeedback(sessionId);
+      setFeedback(data);
+      await refreshSession();
+    } catch (error) {
+      if (error instanceof ApiError) setRefusal(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestAnalysis = async () => {
+    setBusy(true);
+    setRefusal("");
+    try {
+      const report = await api.runAnalysis(sessionId);
+      setReports((previous) => [report, ...previous]);
+    } catch (error) {
+      if (error instanceof ApiError) setRefusal(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const availableTextKinds = TEXT_KIND_ORDER.filter((kind) =>
+    canRecord(protocol, stage, kind, eventViews),
+  );
+  const canDrawIdeogram =
+    !locked && canRecord(protocol, stage, "ideogram", eventViews);
+  const canSketch = !locked && canRecord(protocol, stage, "sketch", eventViews);
+  const advanceReady =
+    !locked && stage !== null && canAdvanceStage(stage, eventViews);
+
+  useEffect(() => {
+    if (!availableTextKinds.includes(entryKind) && availableTextKinds[0]) {
+      setEntryKind(availableTextKinds[0]);
+    }
+  }, [availableTextKinds, entryKind]);
+
+  const paperEvents = events.filter((event) => PAPER_KINDS.has(event.kind));
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <span className="mono text-[12px] text-text-faint tracking-widest pulse">
+          ENTERING CHAMBER
+        </span>
+      </div>
     );
-    sendSessionMessage({
-      type: EventType.CLEAR,
-      sessionId,
-      stageNumber: currentStage,
-    });
-  };
-
-  const handleChatSubmit = () => {
-    if (!inputValue.trim() || isReadOnly) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const drawingDataUrl = canvas.toDataURL("image/png");
-
-    sendSessionMessage({
-      type: EventType.CHAT,
-      user: Role.VIEWER,
-      text: inputValue.trim(),
-      stage: currentStage,
-      drawing: drawingDataUrl,
-    });
-
-    setInputValue("");
-  };
-
-  const handleCompleteSession = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Create a temporary off-screen canvas to render each stage
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempCtx = tempCanvas.getContext("2d");
-
-    if (!tempCtx) return;
-
-    const drawingsByStage = Object.values(Stage)
-      .filter((v) => typeof v === "number")
-      .map((stage) => {
-        // Clear the canvas for each stage
-        tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-        tempCtx.fillStyle = "#FFFADC"; // Match main canvas background
-        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
-        const strokesForStage = drawingHistory.filter(
-          (stroke) => stroke.stage === stage,
-        );
-
-        if (strokesForStage.length === 0) {
-          return null; // No drawing for this stage
-        }
-
-        strokesForStage.forEach((stroke) => {
-          const data = {
-            ...stroke,
-            prevX: stroke.prev_x,
-            prevY: stroke.prev_y,
-          };
-          // Draw the stroke on the temporary canvas
-          tempCtx.lineWidth = 2;
-          tempCtx.lineCap = "round";
-          tempCtx.strokeStyle = data.color;
-          tempCtx.beginPath();
-          tempCtx.moveTo(
-            data.prevX * tempCanvas.width,
-            data.prevY * tempCanvas.height,
-          );
-          tempCtx.lineTo(data.x * tempCanvas.width, data.y * tempCanvas.height);
-          tempCtx.stroke();
-        });
-
-        return tempCanvas.toDataURL("image/png");
-      });
-
-    sendSessionMessage({
-      type: EventType.COMPLETE_SESSION,
-      sessionId,
-      drawings: drawingsByStage.filter((d) => d !== null) as string[],
-    });
-  };
-
-  const filteredMessages = useMemo(() => {
-    return messages.filter((message) => message.stage === currentStage);
-  }, [messages, currentStage]);
+  }
 
   return (
-    <div className="h-full flex flex-col bg-secondary">
-      <header className="relative w-full px-2 sm:px-4 md:px-6 py-2 sm:py-3 shrink-0 glass-dark">
-        <Header
-          pageTitle={
-            session?.createdAt
-              ? `Session ${formatDate(session.createdAt)}`
-              : `Session`
-          }
-          status={session?.status}
-          onComplete={!isReadOnly ? handleCompleteSession : undefined}
-        />
-      </header>
-
-      <main className="flex-1 flex flex-col min-h-0 p-4 md:p-6">
-        {isLoading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative w-12 h-12">
-                <div className="absolute inset-0 rounded-full border-2 border-primary/10" />
-                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b border-line bg-chrome-1 sticky top-0 z-10">
+        <div className="px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <button
+              className="btn"
+              onClick={() => router.push("/")}
+              title="Back to operations"
+            >
+              Ops
+            </button>
+            <div>
+              <div className="mono text-sm tracking-[0.25em] text-signal">
+                {session.tasking.cue}
               </div>
-              <span className="text-sm text-primary/60 font-medium">
-                {session?.status === "assessing"
-                  ? "Assessing session..."
-                  : "Loading session..."}
-              </span>
+              <div className="label mt-0.5">
+                {protocol.toUpperCase()} / {session.viewerName} /{" "}
+                {session.monitorMode.replace("_", " ")}
+              </div>
             </div>
           </div>
-        ) : (
-          <>
-            {isReadOnly && analysisReport ? (
-              // Completed Session View
-              <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
-                <div className="lg:col-span-1 min-h-0 overflow-y-auto">
-                  <div className="grid grid-cols-2 gap-3">
-                    {Object.values(Stage)
-                      .filter((v) => typeof v === "number")
-                      .map((stage, i) => {
-                        const hasDrawing = drawingHistory.some(
-                          (s) => s.stage === stage,
-                        );
-                        if (!hasDrawing) return null;
-                        return (
-                          <div
-                            key={stage}
-                            className="card p-3 animate-fade-in"
-                            style={{ animationDelay: `${i * 50}ms` }}
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-1 h-4 bg-primary/30 rounded-full" />
-                              <span className="text-xs font-medium text-primary/80">
-                                {formatStageLabel(stage as Stage)}
-                              </span>
-                            </div>
-                            <canvas
-                              ref={(el) => {
-                                stageCanvasRefs.current[i] = el;
-                              }}
-                              width={600}
-                              height={337.5}
-                              className="w-full aspect-video rounded-md"
-                              style={{ backgroundColor: "#FFFADC" }}
-                            />
-                          </div>
-                        );
-                      })}
+          <div className="flex items-center gap-5">
+            <div className="text-right">
+              <div className="mono text-sm text-text">
+                {elapsedLabel(session.startedAt, now)}
+              </div>
+              <div className="label">elapsed</div>
+            </div>
+            <div className="text-right">
+              <div className={`mono text-sm ${session.aolCount > 0 ? "text-warn" : "text-text"}`}>
+                {session.aolCount}
+              </div>
+              <div className="label">AOL</div>
+            </div>
+            <div className="text-right">
+              <div className="mono text-sm text-text">{session.breakCount}</div>
+              <div className="label">breaks</div>
+            </div>
+            {locked ? (
+              <span className="mono text-[10px] uppercase tracking-widest px-2 py-1 rounded border text-warn border-warn/40 bg-warn-dim">
+                {session.status}
+              </span>
+            ) : (
+              <button
+                className={`btn ${confirmLock ? "btn-danger" : ""}`}
+                onClick={lock}
+                disabled={busy}
+                onBlur={() => setConfirmLock(false)}
+              >
+                {confirmLock ? "Confirm lock" : "Lock session"}
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 grid grid-cols-1 xl:grid-cols-[190px_minmax(0,1fr)_340px] gap-4 p-4 max-w-[1500px] w-full mx-auto">
+        <aside className="space-y-3">
+          <StageRail
+            currentStage={session.currentStage}
+            stageRecords={session.stageRecords ?? []}
+            locked={locked}
+          />
+          {!locked && stage !== null ? (
+            <button
+              className={`btn w-full ${advanceReady ? "btn-signal" : ""}`}
+              onClick={advance}
+              disabled={busy || !advanceReady}
+            >
+              {stage >= 6 ? "Final stage" : `Advance to ${STAGE_ROMAN[stage + 1]}`}
+            </button>
+          ) : null}
+        </aside>
+
+        <section className="flex flex-col min-h-0">
+          <div className="paper px-8 py-6 flex-1 overflow-y-auto min-h-[300px]">
+            {paperEvents.map((event) => (
+              <PaperEntry key={event.id} event={event} />
+            ))}
+            <div ref={paperEndRef} />
+          </div>
+
+          {!locked ? (
+            <div className="mt-3 space-y-3">
+              {(canDrawIdeogram || canSketch) && !aolOpen ? (
+                <div>
+                  <PaperCanvas
+                    ref={canvasRef}
+                    height={190}
+                    disabled={busy}
+                    onSegment={sendInk}
+                    lined={false}
+                  />
+                  <div className="flex gap-2 mt-2">
+                    {canDrawIdeogram ? (
+                      <button
+                        className="btn btn-signal"
+                        onClick={() => commitInk("ideogram")}
+                        disabled={busy}
+                      >
+                        Objectify ideogram
+                      </button>
+                    ) : null}
+                    {canSketch ? (
+                      <button
+                        className="btn"
+                        onClick={() => commitInk("sketch")}
+                        disabled={busy}
+                      >
+                        Commit sketch
+                      </button>
+                    ) : null}
+                    <button
+                      className="btn"
+                      onClick={() => canvasRef.current?.clear()}
+                      disabled={busy}
+                    >
+                      Clear pad
+                    </button>
                   </div>
                 </div>
-                <div className="lg:col-span-1 min-h-0 flex flex-col gap-4">
-                  <div className="min-h-0 flex-1">
-                    <AnalysisReport
-                      report={analysisReport}
-                      messages={messages}
-                      targetImage={targetImage}
-                      targetModel={targetModel}
-                    />
-                  </div>
+              ) : null}
+
+              <div className="panel p-3">
+                <div className="flex gap-2 flex-wrap">
+                  {availableTextKinds.map((kind) => (
+                    <button
+                      key={kind}
+                      className={`mono text-[10px] uppercase tracking-widest px-2.5 py-1.5 rounded border transition-colors ${
+                        entryKind === kind
+                          ? "border-signal-line bg-signal-dim text-signal"
+                          : "border-line text-text-muted hover:border-line-strong"
+                      }`}
+                      onClick={() => setEntryKind(kind)}
+                    >
+                      {KIND_LABELS[kind]}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <input
+                    className="input flex-1"
+                    placeholder={
+                      aolOpen
+                        ? "AOL is open. Objectify the break to resume."
+                        : `Objectify ${KIND_LABELS[entryKind]?.toLowerCase()}...`
+                    }
+                    value={entry}
+                    onChange={(e) => setEntry(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !aolOpen) submitEntry();
+                    }}
+                    disabled={busy || aolOpen}
+                  />
+                  <button
+                    className="btn"
+                    onClick={submitEntry}
+                    disabled={busy || aolOpen || !entry.trim()}
+                  >
+                    Record
+                  </button>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {aolOpen ? (
+                    <button
+                      className="btn btn-warn"
+                      onClick={() => record("aol_break", {})}
+                      disabled={busy}
+                    >
+                      AOL break, set aside
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-warn"
+                      onClick={declareAol}
+                      disabled={busy}
+                    >
+                      Declare AOL
+                    </button>
+                  )}
+                  <button
+                    className="btn"
+                    onClick={() => record("break", { reason: "bio" })}
+                    disabled={busy || aolOpen}
+                  >
+                    Break
+                  </button>
+                  {refusal ? (
+                    <span className="mono text-[11px] text-warn self-center fade-up">
+                      {refusal}
+                    </span>
+                  ) : null}
                 </div>
               </div>
-            ) : (
-              // Active Session View
-              <>
-                {/* Stage Navigation */}
-                <div className="flex justify-center mb-4 sm:mb-6 shrink-0">
-                  <div className="w-full sm:w-auto">
-                    <div className="flex bg-secondary rounded-lg p-0.5 sm:p-1 shadow-sm border border-primary/10">
-                      {Object.values(Stage)
-                        .filter((v) => typeof v === "number")
-                        .map((stage) => (
-                          <button
-                            key={stage}
-                            onClick={() => handleStageChange(stage as Stage)}
-                            className={`flex-1 sm:flex-none px-1.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium rounded-md transition-all duration-200 whitespace-nowrap ${
-                              currentStage === stage
-                                ? "bg-primary text-secondary shadow-sm"
-                                : "text-primary/70 hover:text-primary hover:bg-primary/5"
-                            }`}
-                          >
-                            {formatStageLabel(stage as Stage)}
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                </div>
+            </div>
+          ) : null}
+        </section>
 
-                {/* Main Content Area */}
-                <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 min-h-0">
-                  {/* Left Column - Drawing Canvas */}
-                  <div className="flex-1 flex items-center justify-center min-h-0 order-1 lg:order-1">
-                    <div className="relative max-w-full max-h-full aspect-12/7 card p-2 shadow-2xl shadow-black/30">
-                      <canvas
-                        ref={canvasRef}
-                        width={1200}
-                        height={700}
-                        className="rounded-lg cursor-crosshair w-full h-full touch-none shadow-inner"
-                        style={{
-                          touchAction: "none",
-                          backgroundColor: "#FFFADC",
-                        }}
-                        onMouseDown={startDrawing}
-                        onMouseUp={stopDrawing}
-                        onMouseLeave={stopDrawing}
-                        onMouseMove={draw}
-                        onTouchStart={(e) => {
-                          e.preventDefault();
-                          const touch = e.touches[0];
-                          const mouseEvent = new MouseEvent("mousedown", {
-                            clientX: touch.clientX,
-                            clientY: touch.clientY,
-                          });
-                          startDrawing(
-                            mouseEvent as unknown as React.MouseEvent<HTMLCanvasElement>,
-                          );
-                        }}
-                        onTouchEnd={(e) => {
-                          e.preventDefault();
-                          stopDrawing();
-                        }}
-                        onTouchMove={(e) => {
-                          e.preventDefault();
-                          const touch = e.touches[0];
-                          const mouseEvent = new MouseEvent("mousemove", {
-                            clientX: touch.clientX,
-                            clientY: touch.clientY,
-                          });
-                          draw(
-                            mouseEvent as unknown as React.MouseEvent<HTMLCanvasElement>,
-                          );
-                        }}
+        <aside className="space-y-3 min-w-0">
+          <MonitorFeed events={events} monitorMode={session.monitorMode} />
+
+          {locked ? (
+            <>
+              <div className="panel p-4">
+                <div className="flex items-center justify-between">
+                  <span className="label">Feedback</span>
+                  {session.feedbackLatencyMs != null ? (
+                    <span className="mono text-[10px] text-text-faint">
+                      latency {Math.round(session.feedbackLatencyMs / 1000)}s
+                    </span>
+                  ) : null}
+                </div>
+                {feedback ? (
+                  <div className="mt-2 reveal">
+                    {feedback.target.payloadB64 ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`data:image/jpeg;base64,${feedback.target.payloadB64}`}
+                        alt="Sealed target"
+                        className="rounded border border-line w-full"
                       />
-
-                      {!isReadOnly && (
-                        <>
-                          {/* Top Controls */}
-                          <div className="absolute top-3 left-4 right-4 flex justify-between items-center">
-                            <button
-                              onClick={handleClearCanvas}
-                              className="btn btn-ghost text-xs gap-1.5"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M3 6h18" />
-                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                              </svg>
-                              Clear
-                            </button>
-
-                            <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
-                              <span className="text-xs text-primary/70">
-                                Ink
-                              </span>
-                              <div className="relative w-7 h-7 rounded-md border border-primary/20 overflow-hidden cursor-pointer shadow-sm">
-                                <div
-                                  className="w-full h-full"
-                                  style={{ backgroundColor: penColour }}
-                                />
-                                <input
-                                  type="color"
-                                  value={penColour}
-                                  onChange={(e) => setPenColour(e.target.value)}
-                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Bottom Controls */}
-                          <div className="absolute bottom-3 left-4">
-                            <div className="glass rounded-full px-3 py-1.5 flex items-center gap-2">
-                              <div
-                                className={`status-dot ${sessionConnected ? "status-dot-connected" : "status-dot-disconnected"}`}
-                              />
-                              <span className="text-xs font-medium text-primary/70">
-                                {sessionConnected
-                                  ? "Connected"
-                                  : "Disconnected"}
-                              </span>
-                            </div>
-                          </div>
-
-                          {mobileUrl && (
-                            <div className="absolute bottom-3 right-4">
-                              <div
-                                onClick={() => setQrExpanded(!qrExpanded)}
-                                className="glass rounded-lg p-2 cursor-pointer transition-all duration-300 ease-in-out hover:shadow-md"
-                              >
-                                {qrExpanded ? (
-                                  <div className="flex flex-col items-center p-2">
-                                    <QRCodeSVG
-                                      value={mobileUrl}
-                                      size={120}
-                                      level="H"
-                                      includeMargin={false}
-                                      bgColor="transparent"
-                                      fgColor="#065B84"
-                                    />
-                                    <span className="text-xs font-medium text-primary/70 mt-2">
-                                      Sketch on mobile
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="16"
-                                      height="16"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="1.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      className="text-primary/70"
-                                    >
-                                      <rect
-                                        x="5"
-                                        y="2"
-                                        width="14"
-                                        height="20"
-                                        rx="2"
-                                        ry="2"
-                                      />
-                                      <line
-                                        x1="12"
-                                        y1="18"
-                                        x2="12.01"
-                                        y2="18"
-                                      />
-                                    </svg>
-                                    <span className="text-xs font-medium text-primary/70">
-                                      Mobile
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
+                    ) : null}
+                    <div className="mono text-[12px] text-text mt-2">
+                      {feedback.target.title}
+                    </div>
+                    {feedback.target.coordinates ? (
+                      <div className="mono text-[11px] text-text-muted mt-1">
+                        {feedback.target.coordinates}
+                      </div>
+                    ) : null}
+                    <div className="mono text-[9px] text-text-faint mt-2 break-all">
+                      seal {feedback.target.payloadSha256}
                     </div>
                   </div>
+                ) : (
+                  <button
+                    className="btn btn-signal w-full mt-2"
+                    onClick={breakSeal}
+                    disabled={busy}
+                  >
+                    Break seal, reveal target
+                  </button>
+                )}
+              </div>
 
-                  {/* Monitor */}
-                  <div className="w-full lg:w-80 shrink-0 min-h-0 order-2 lg:order-2 flex flex-col shadow-2xl shadow-black/30">
-                    <ChatWindow
-                      messages={filteredMessages}
-                      inputValue={inputValue}
-                      setInputValue={setInputValue}
-                      onSubmit={handleChatSubmit}
-                      isReadOnly={isReadOnly}
-                    />
-                  </div>
+              <JudgingBoard
+                sessionId={sessionId}
+                inSeries={inSeries}
+                judged={session.status === "judged"}
+                onJudged={refreshSession}
+              />
+
+              <div className="panel p-4">
+                <div className="flex items-center justify-between">
+                  <span className="label">Analyst (advisory)</span>
+                  <span className="label">second opinion</span>
                 </div>
-              </>
-            )}
-          </>
-        )}
+                {reports.length > 0 ? (
+                  <div className="mt-2 space-y-3">
+                    {reports.map((report) => (
+                      <div key={report.id} className="fade-up">
+                        {report.advisoryScore != null ? (
+                          <div className="mono text-lg text-text">
+                            {report.advisoryScore.toFixed(1)}
+                            <span className="text-[11px] text-text-faint">
+                              {" "}
+                              / 7 advisory
+                            </span>
+                          </div>
+                        ) : null}
+                        <p className="text-[12px] text-text-muted leading-relaxed mt-1">
+                          {report.summary}
+                        </p>
+                        {report.correspondences.slice(0, 6).map((item, index) => (
+                          <div
+                            key={index}
+                            className="flex gap-2 items-baseline mt-1.5"
+                          >
+                            <span className="mono text-[10px] text-signal shrink-0">
+                              {(item.strength * 100).toFixed(0)}%
+                            </span>
+                            <span className="text-[11px] text-text-muted">
+                              {item.element} → {item.target_feature}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : aiEnabled ? (
+                  <button
+                    className="btn w-full mt-2"
+                    onClick={requestAnalysis}
+                    disabled={busy}
+                  >
+                    Request analyst read
+                  </button>
+                ) : (
+                  <p className="text-[11px] text-text-faint mt-2">
+                    Analyst offline. Set GOOGLE_API_KEY to enable the advisory
+                    read. Blind judging above is the score of record.
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="panel p-4">
+              <span className="label">Sealed</span>
+              <p className="text-[12px] text-text-muted mt-2 leading-relaxed">
+                The target stays sealed until you lock. Feedback, judging, and
+                analysis open after lock.
+              </p>
+            </div>
+          )}
+        </aside>
       </main>
     </div>
   );

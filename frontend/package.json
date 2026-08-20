@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "npx tsc && eslint . --fix",
     "format": "npx prettier . --write",
-    "test": "echo \"No tests\""
+    "test": "vitest run"
   },
   "dependencies": {
     "js-yaml": "^4.1.1",
@@ -30,6 +30,7 @@
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

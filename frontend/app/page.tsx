@@ -1,259 +1,368 @@
 "use client";
 
-import LoadingBar from "@/components/LoadingBar";
-import Sessions from "@/components/Sessions";
-import Header from "@/components/Header";
-import { useWebSocket } from "@/components/WebSocketProvider";
-import { useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  api,
+  SeriesData,
+  SessionSummary,
+  StatsData,
+  TaskingSummary,
+} from "@/lib/api";
+import { Protocol, STAGE_ROMAN } from "@/lib/protocol";
 
-function StatsBar({ sessions }: { sessions: any[] }) {
-  const stats = useMemo(() => {
-    const completedSessions = sessions
-      .filter((s) => s.status === "completed" && s.score !== null)
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-    const totalSessions = sessions.length;
-    const activeSessions = sessions.filter((s) => s.status === "active").length;
+const PROTOCOL_OPTIONS: { value: Protocol; label: string }[] = [
+  { value: "crv", label: "CRV" },
+  { value: "erv", label: "ERV" },
+];
 
-    // Average composite score (overall performance)
-    const avgScore =
-      completedSessions.length > 0
-        ? (
-            completedSessions.reduce((sum, s) => sum + (s.score || 0), 0) /
-            completedSessions.length
-          ).toFixed(1)
-        : "—";
+const ENVIRONMENT_OPTIONS = [
+  { value: "monitored_ai", label: "AI monitor" },
+  { value: "solo", label: "Solo" },
+];
 
-    // Best session (peak performance)
-    const bestScore =
-      completedSessions.length > 0
-        ? Math.max(...completedSessions.map((s) => s.score || 0)).toFixed(1)
-        : "—";
-
-    // Consistency (score range - lower is better)
-    const scores = completedSessions.map((s) => s.score || 0);
-    const scoreRange =
-      scores.length > 0
-        ? (Math.max(...scores) - Math.min(...scores)).toFixed(1)
-        : "—";
-
-    // Recent performance trend (last 5 vs overall)
-    const recentSessions = completedSessions.slice(0, 5);
-    const recentAvg =
-      recentSessions.length > 0
-        ? (
-            recentSessions.reduce((sum, s) => sum + (s.score || 0), 0) /
-            recentSessions.length
-          ).toFixed(1)
-        : "—";
-    const trend =
-      avgScore !== "—" && recentAvg !== "—"
-        ? parseFloat(recentAvg) > parseFloat(avgScore)
-          ? "↑"
-          : parseFloat(recentAvg) < parseFloat(avgScore)
-            ? "↓"
-            : "→"
-        : "";
-
-    // Average data depth (stages with content)
-    const avgStages =
-      sessions.length > 0
-        ? (
-            sessions.reduce(
-              (sum, s) => sum + (s.stagesWithContent?.length || 0),
-              0,
-            ) / sessions.length
-          ).toFixed(1)
-        : "—";
-
-    // Completion rate
-    const completionRate =
-      totalSessions > 0
-        ? Math.round((completedSessions.length / totalSessions) * 100)
-        : 0;
-
-    // Sessions with full 6 stages (complete CRV protocol)
-    const fullProtocolSessions = sessions.filter(
-      (s) => s.stagesWithContent?.length === 6,
-    ).length;
-
-    return {
-      totalSessions,
-      activeSessions,
-      avgScore,
-      bestScore,
-      scoreRange,
-      recentAvg,
-      trend,
-      avgStages,
-      completionRate,
-      fullProtocolSessions,
-      completedCount: completedSessions.length,
-    };
-  }, [sessions]);
-
+function StatusBadge({ status }: { status: string }) {
+  const tone =
+    status === "active"
+      ? "text-signal border-signal-line bg-signal-dim"
+      : status === "locked"
+        ? "text-warn border-warn/40 bg-warn-dim"
+        : "text-text-muted border-line bg-chrome-2";
   return (
-    <div className="w-full bg-[#f4d03f] border-b border-[#f1c40f]/50 relative overflow-hidden">
-      {/* Subtle pattern overlay for differentiation */}
-      <div className="absolute inset-0 opacity-5 bg-[linear-gradient(45deg,transparent_25%,rgba(0,0,0,.1)_50%,transparent_75%,rgba(0,0,0,.1)_100%)] bg-size-[20px_20px]" />
+    <span
+      className={`mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border ${tone}`}
+    >
+      {status}
+    </span>
+  );
+}
 
-      <div className="relative overflow-x-auto">
-        <div className="flex items-center justify-center gap-0 text-xs min-w-max px-2 sm:px-6 py-2 sm:py-3">
-          {/* Overall Performance (Figure of Merit equivalent) */}
-          <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-4 min-w-[70px] sm:min-w-0 sm:flex-1">
-            <span className="text-primary/80 uppercase tracking-wide text-[9px] sm:text-[10px] font-medium">
-              Overall Score
-            </span>
-            <span className="font-bold text-primary text-xs sm:text-sm">
-              {stats.avgScore}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">
-                /7
-              </span>
-            </span>
-          </div>
-
-          <div className="h-6 sm:h-8 w-px bg-primary/40" />
-
-          {/* Peak Performance (Best Session) */}
-          <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-4 min-w-[70px] sm:min-w-0 sm:flex-1">
-            <span className="text-primary/80 uppercase tracking-wide text-[9px] sm:text-[10px] font-medium">
-              Peak Score
-            </span>
-            <span className="font-bold text-green-600 text-xs sm:text-sm">
-              {stats.bestScore}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">
-                /7
-              </span>
-            </span>
-          </div>
-
-          <div className="h-6 sm:h-8 w-px bg-primary/40" />
-
-          {/* Reliability (Consistency - lower range = more reliable) */}
-          <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-4 min-w-[70px] sm:min-w-0 sm:flex-1">
-            <span className="text-primary/80 uppercase tracking-wide text-[9px] sm:text-[10px] font-medium">
-              Reliability
-            </span>
-            <span className="font-bold text-primary text-xs sm:text-sm">
-              {stats.scoreRange}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal hidden sm:inline">
-                {" "}
-                variance
-              </span>
-            </span>
-          </div>
-
-          <div className="h-6 sm:h-8 w-px bg-primary/40" />
-
-          {/* Data Quality (Sensory richness - avg stages) */}
-          <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-4 min-w-[70px] sm:min-w-0 sm:flex-1">
-            <span className="text-primary/80 uppercase tracking-wide text-[9px] sm:text-[10px] font-medium">
-              Data Quality
-            </span>
-            <span className="font-bold text-primary text-xs sm:text-sm">
-              {stats.avgStages}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal hidden sm:inline">
-                {" "}
-                stages avg
-              </span>
-            </span>
-          </div>
-
-          <div className="h-6 sm:h-8 w-px bg-primary/40" />
-
-          {/* Protocol Adherence (Full 6-stage sessions) */}
-          <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-4 min-w-[70px] sm:min-w-0 sm:flex-1">
-            <span className="text-primary/80 uppercase tracking-wide text-[9px] sm:text-[10px] font-medium">
-              Protocol
-            </span>
-            <span className="font-bold text-primary text-xs sm:text-sm">
-              {stats.fullProtocolSessions}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal hidden sm:inline">
-                {" "}
-                complete
-              </span>
-            </span>
-          </div>
-
-          <div className="h-6 sm:h-8 w-px bg-primary/40" />
-
-          {/* Performance Trend (Improving/declining) */}
-          <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-4 min-w-[70px] sm:min-w-0 sm:flex-1">
-            <span className="text-primary/80 uppercase tracking-wide text-[9px] sm:text-[10px] font-medium">
-              Trend
-            </span>
-            <span className="font-bold text-primary text-xs sm:text-sm">
-              {stats.recentAvg}
-              <span className="text-primary/70 text-[10px] sm:text-xs font-normal">
-                /7
-              </span>
-              {stats.trend && (
-                <span
-                  className={`ml-1 sm:ml-1.5 text-sm sm:text-base ${
-                    stats.trend === "↑"
-                      ? "text-green-600"
-                      : stats.trend === "↓"
-                        ? "text-red-600"
-                        : "text-primary/60"
-                  }`}
-                >
-                  {stats.trend}
-                </span>
-              )}
-            </span>
-          </div>
-
-          <div className="h-6 sm:h-8 w-px bg-primary/40" />
-
-          {/* Session Completion Rate */}
-          <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-4 min-w-[70px] sm:min-w-0 sm:flex-1">
-            <span className="text-primary/80 uppercase tracking-wide text-[9px] sm:text-[10px] font-medium">
-              Completion
-            </span>
-            <span className="font-bold text-primary text-xs sm:text-sm">
-              {stats.completionRate}%
-            </span>
-          </div>
-        </div>
-      </div>
+function Stat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <div className="panel px-4 py-3 flex-1 min-w-[130px]">
+      <div className="label">{label}</div>
+      <div className="mono text-xl mt-1 text-text">{value}</div>
+      {detail ? (
+        <div className="text-[11px] text-text-faint mt-0.5">{detail}</div>
+      ) : null}
     </div>
   );
 }
 
-export default function Home() {
-  const { sessions, isLoading, sendMessage } = useWebSocket();
+export default function OpsConsole() {
+  const router = useRouter();
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [taskings, setTaskings] = useState<TaskingSummary[]>([]);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [series, setSeries] = useState<SeriesData[]>([]);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [protocol, setProtocol] = useState<Protocol>("crv");
+  const [environment, setEnvironment] = useState("monitored_ai");
+  const [selectedSeries, setSelectedSeries] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-  const sortedSessions = useMemo(() => {
-    if (!sessions) return [];
-    return [...sessions].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-  }, [sessions]);
+  const refresh = useCallback(async () => {
+    try {
+      const [statsData, taskingData, sessionData, seriesData, healthData] =
+        await Promise.all([
+          api.stats(),
+          api.listTaskings(),
+          api.listSessions(),
+          api.listSeries(),
+          api.health(),
+        ]);
+      setStats(statsData);
+      setTaskings(taskingData.taskings);
+      setSessions(sessionData.sessions);
+      setSeries(seriesData.series);
+      setAiEnabled(healthData.aiEnabled);
+      setError("");
+    } catch {
+      setError("Backend unreachable");
+    }
+  }, []);
 
-  const handleNewSession = () => {
-    if (sendMessage) {
-      sendMessage(JSON.stringify({ type: "create_session" }));
+  useEffect(() => {
+    refresh();
+    const timer = setInterval(refresh, 8000);
+    return () => clearInterval(timer);
+  }, [refresh]);
+
+  const cutTasking = async () => {
+    setBusy(true);
+    try {
+      await api.createTasking({
+        protocol,
+        environment,
+        seriesId: selectedSeries || undefined,
+      });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Tasking failed");
+    } finally {
+      setBusy(false);
     }
   };
 
+  const newSeries = async () => {
+    const name = `Series ${String.fromCharCode(65 + series.length)}`;
+    setBusy(true);
+    try {
+      const created = await api.createSeries(name);
+      setSelectedSeries(created.id);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const enterChamber = async (tasking: TaskingSummary) => {
+    if (tasking.sessionId) {
+      router.push(`/session/${tasking.sessionId}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const session = await api.startSession(tasking.id);
+      router.push(`/session/${session.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start session");
+      setBusy(false);
+    }
+  };
+
+  const openTaskings = taskings.filter((t) => !t.sessionId);
+  const recentSessions = sessions.slice(0, 30);
+
   return (
-    <div className="h-full flex flex-col bg-secondary">
-      <header className="relative w-full px-4 sm:px-6 py-3 shrink-0 glass-dark">
-        <Header pageTitle="Session Database" onNewSession={handleNewSession} />
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b border-line bg-chrome-1">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="mono text-base tracking-[0.3em] text-text">
+              PROJECT STARGATE
+            </h1>
+            <div className="label mt-1">Remote viewing operations</div>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span
+                className={`dot ${aiEnabled ? "dot-signal pulse" : "dot-idle"}`}
+              />
+              <span className="label">
+                {aiEnabled ? "AI online" : "AI offline"}
+              </span>
+            </div>
+            {error ? (
+              <span className="mono text-[11px] text-danger">{error}</span>
+            ) : null}
+          </div>
+        </div>
       </header>
-      {!isLoading && sessions && sessions.length > 0 && (
-        <StatsBar sessions={sessions} />
-      )}
-      <main className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6">
-        {isLoading ? (
-          <LoadingBar message="Loading sessions..." />
-        ) : (
-          <Sessions sessions={sortedSessions} />
-        )}
+
+      <main className="max-w-6xl mx-auto px-6 py-6 w-full flex-1">
+        <div className="flex gap-3 flex-wrap">
+          <Stat
+            label="Sessions"
+            value={stats ? String(stats.sessions.total) : "--"}
+            detail={stats ? `${stats.sessions.active} active` : undefined}
+          />
+          <Stat
+            label="First-place matches"
+            value={
+              stats
+                ? `${stats.judging.firstPlaceMatches}/${stats.judging.judgedSessions}`
+                : "--"
+            }
+            detail={
+              stats
+                ? `chance ${stats.judging.expectedFirstPlace}`
+                : undefined
+            }
+          />
+          <Stat
+            label="Mean rank"
+            value={
+              stats?.judging.meanRankOfTrueTarget != null
+                ? stats.judging.meanRankOfTrueTarget.toFixed(2)
+                : "--"
+            }
+            detail="of true target"
+          />
+          <Stat
+            label="AOL / session"
+            value={stats ? stats.protocolHealth.aolPerSession.toFixed(1) : "--"}
+          />
+          <Stat
+            label="Feedback latency"
+            value={
+              stats?.feedback.meanLatencyMs != null
+                ? `${Math.round(stats.feedback.meanLatencyMs / 1000)}s`
+                : "--"
+            }
+            detail={
+              stats ? `${stats.feedback.sessionsWithFeedback} fed back` : undefined
+            }
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
+          <section className="lg:col-span-2">
+            <div className="panel p-5">
+              <h2 className="label">Tasking desk</h2>
+              <p className="text-[12px] text-text-muted mt-2 leading-relaxed">
+                Cutting a tasking seals a random target from the pool. The cue
+                below is all the viewer ever sees before lock.
+              </p>
+              <div className="flex gap-2 mt-4 flex-wrap">
+                <select
+                  className="select"
+                  value={protocol}
+                  onChange={(e) => setProtocol(e.target.value as Protocol)}
+                >
+                  {PROTOCOL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="select"
+                  value={environment}
+                  onChange={(e) => setEnvironment(e.target.value)}
+                >
+                  {ENVIRONMENT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="select"
+                  value={selectedSeries}
+                  onChange={(e) => setSelectedSeries(e.target.value)}
+                >
+                  <option value="">No series</option>
+                  {series.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.taskingCount})
+                    </option>
+                  ))}
+                </select>
+                <button className="btn" onClick={newSeries} disabled={busy}>
+                  + Series
+                </button>
+              </div>
+              <button
+                className="btn btn-signal w-full mt-4"
+                onClick={cutTasking}
+                disabled={busy}
+              >
+                Seal new tasking
+              </button>
+            </div>
+
+            <div className="panel p-5 mt-4">
+              <h2 className="label">Open taskings</h2>
+              <div className="mt-3 space-y-2">
+                {openTaskings.length === 0 ? (
+                  <p className="text-[12px] text-text-faint">
+                    No sealed taskings waiting. Cut one above.
+                  </p>
+                ) : (
+                  openTaskings.map((tasking) => (
+                    <div
+                      key={tasking.id}
+                      className="panel-inset px-4 py-3 flex items-center justify-between fade-up"
+                    >
+                      <div>
+                        <div className="mono text-sm tracking-widest text-signal">
+                          {tasking.cue}
+                        </div>
+                        <div className="label mt-1">
+                          {tasking.protocol.toUpperCase()}
+                          {" / "}
+                          {tasking.environment.replace("_", " ")}
+                          {tasking.seriesPosition != null
+                            ? ` / trial ${tasking.seriesPosition}`
+                            : ""}
+                        </div>
+                      </div>
+                      <button
+                        className="btn"
+                        onClick={() => enterChamber(tasking)}
+                        disabled={busy}
+                      >
+                        Enter chamber
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="lg:col-span-3">
+            <div className="panel p-5">
+              <h2 className="label">Session log</h2>
+              <div className="mt-3 space-y-2">
+                {recentSessions.length === 0 ? (
+                  <p className="text-[12px] text-text-faint">
+                    No sessions yet.
+                  </p>
+                ) : (
+                  recentSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      className="panel-inset px-4 py-3 w-full flex items-center justify-between text-left hover:border-line-strong transition-colors"
+                      onClick={() => router.push(`/session/${session.id}`)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className="mono text-sm tracking-widest text-text">
+                          {session.tasking.cue}
+                        </span>
+                        <span className="label">
+                          {session.tasking.protocol.toUpperCase()}
+                          {session.currentStage
+                            ? ` / S-${STAGE_ROMAN[session.currentStage]}`
+                            : ""}
+                        </span>
+                        <span className="label">{session.viewerName}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {session.aolCount > 0 ? (
+                          <span className="mono text-[10px] text-warn">
+                            AOL {session.aolCount}
+                          </span>
+                        ) : null}
+                        <StatusBadge status={session.status} />
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
       </main>
+
+      <footer className="border-t border-line">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex justify-between">
+          <span className="label">
+            Protocols per CRV manual (1986), Swann / Smith
+          </span>
+          <span className="label">Double-blind. Feedback after lock.</span>
+        </div>
+      </footer>
     </div>
   );
 }
