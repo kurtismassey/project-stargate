@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, getLabKey, PoolData, PoolReceipt } from "@/lib/api";
+import { api, deskNeedsUnlock, PoolData, PoolReceipt } from "@/lib/api";
 import { DescriptorBoard } from "@/components/DescriptorBoard";
 import { LabGate } from "@/components/LabGate";
 
@@ -35,10 +35,11 @@ export default function VaultPage() {
 
   const refresh = useCallback(async () => {
     const health = await api.health();
-    if (health.labKeyRequired && !getLabKey()) {
+    if (deskNeedsUnlock(health)) {
       setLabLocked(true);
       return;
     }
+    setLabLocked(false);
     const data = await api.listPools();
     setPools(data.pools);
     const current = selected || data.pools[0]?.id || "";
@@ -113,15 +114,13 @@ export default function VaultPage() {
     }
   };
 
+  const unlockDesk = useCallback(() => {
+    setLabLocked(false);
+    refresh();
+  }, [refresh]);
+
   if (labLocked) {
-    return (
-      <LabGate
-        onUnlocked={() => {
-          setLabLocked(false);
-          refresh();
-        }}
-      />
-    );
+    return <LabGate onUnlocked={unlockDesk} />;
   }
 
   return (

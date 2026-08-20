@@ -4,9 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   api,
-  getLabKey,
+  clearDeskCredentials,
+  deskNeedsUnlock,
+  getOperatorToken,
   SeriesData,
   SessionSummary,
+  setOperatorToken,
   StatsData,
   TaskingSummary,
   ViewerData,
@@ -86,6 +89,9 @@ export default function OpsConsole() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [labLocked, setLabLocked] = useState(false);
+  const [signedIn, setSignedIn] = useState("");
+  const [newCallsign, setNewCallsign] = useState("");
+  const [newPassphrase, setNewPassphrase] = useState("");
 
   const refresh = useCallback(async () => {
     try {
@@ -113,7 +119,18 @@ export default function OpsConsole() {
       setSessions(sessionData.sessions);
       setSeries(seriesData.series);
       setAiEnabled(healthData.aiEnabled);
-      setLabLocked(healthData.labKeyRequired && !getLabKey());
+      if (getOperatorToken()) {
+        try {
+          const me = await api.me();
+          setSignedIn(me.operator.callsign);
+        } catch {
+          clearDeskCredentials();
+          setSignedIn("");
+        }
+      } else {
+        setSignedIn("");
+      }
+      setLabLocked(deskNeedsUnlock(healthData));
       setViewers(viewerData.viewers);
       setSelectedViewer((current) => current || viewerData.viewers[0]?.id || "");
       setOperators(operatorData.operators);
@@ -182,18 +199,32 @@ export default function OpsConsole() {
   };
 
   const newOperator = async () => {
-    const callsign = `Op ${String(operators.length + 1).padStart(3, "0")}`;
+    const callsign =
+      newCallsign.trim() ||
+      `Op ${String(operators.length + 1).padStart(3, "0")}`;
     setBusy(true);
     try {
-      const created = await api.createOperator(callsign);
+      const created = await api.createOperator(
+        callsign,
+        newPassphrase || undefined,
+      );
+      if (created.token) setOperatorToken(created.token);
       setSelectedOperator(created.id);
       if (!selectedMonitor) setSelectedMonitor(created.id);
+      setNewCallsign("");
+      setNewPassphrase("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add operator");
     } finally {
       setBusy(false);
     }
+  };
+
+  const signOut = () => {
+    clearDeskCredentials();
+    setSignedIn("");
+    refresh();
   };
 
   const newViewer = async () => {
@@ -235,15 +266,13 @@ export default function OpsConsole() {
   const openTaskings = taskings.filter((t) => !t.sessionId);
   const recentSessions = sessions.slice(0, 30);
 
+  const unlockDesk = useCallback(() => {
+    setLabLocked(false);
+    refresh();
+  }, [refresh]);
+
   if (labLocked) {
-    return (
-      <LabGate
-        onUnlocked={() => {
-          setLabLocked(false);
-          refresh();
-        }}
-      />
-    );
+    return <LabGate onUnlocked={unlockDesk} />;
   }
 
   return (
@@ -271,6 +300,14 @@ export default function OpsConsole() {
                 {aiEnabled ? "AI online" : "AI offline"}
               </span>
             </div>
+            {signedIn ? (
+              <div className="flex items-center gap-3">
+                <span className="mono text-[11px] text-text">{signedIn}</span>
+                <button className="btn" onClick={signOut}>
+                  Sign out
+                </button>
+              </div>
+            ) : null}
             {error ? (
               <span className="mono text-[11px] text-danger">{error}</span>
             ) : null}
@@ -434,9 +471,23 @@ export default function OpsConsole() {
                   {operators.map((row) => (
                     <option key={row.id} value={row.id}>
                       {row.callsign}
+                      {row.locked ? " · keyed" : ""}
                     </option>
                   ))}
                 </select>
+                <input
+                  className="input w-28"
+                  placeholder="Callsign"
+                  value={newCallsign}
+                  onChange={(e) => setNewCallsign(e.target.value)}
+                />
+                <input
+                  className="input w-32"
+                  type="password"
+                  placeholder="Passphrase"
+                  value={newPassphrase}
+                  onChange={(e) => setNewPassphrase(e.target.value)}
+                />
                 <button className="btn" onClick={newOperator} disabled={busy}>
                   + Operator
                 </button>
@@ -544,7 +595,10 @@ export default function OpsConsole() {
                       key={row.id}
                       className="panel-inset px-4 py-3 flex items-center justify-between"
                     >
-                      <span className="mono text-sm text-text">{row.callsign}</span>
+                      <span className="mono text-sm text-text">
+                        {row.callsign}
+                        {row.locked ? " · keyed" : ""}
+                      </span>
                       <span className="label">
                         {row.sessionsOperated} ops / {row.sessionsMonitored}{" "}
                         monitored

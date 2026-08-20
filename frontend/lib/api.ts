@@ -131,9 +131,18 @@ export interface OperatorData {
   id: string;
   callsign: string;
   notes: string;
+  locked: boolean;
   createdAt: string;
   sessionsOperated: number;
   sessionsMonitored: number;
+  token?: string;
+}
+
+export interface HealthData {
+  status: string;
+  aiEnabled: boolean;
+  labKeyRequired: boolean;
+  operatorAuthRequired: boolean;
 }
 
 export interface ViewerData {
@@ -225,6 +234,7 @@ export interface LagTarget {
 }
 
 export const LAB_KEY_STORAGE = "stargate-lab-key";
+export const OPERATOR_TOKEN_STORAGE = "stargate-operator-token";
 
 export function getLabKey(): string {
   if (typeof window === "undefined") return "";
@@ -237,6 +247,29 @@ export function setLabKey(key: string) {
 
 export function clearLabKey() {
   sessionStorage.removeItem(LAB_KEY_STORAGE);
+}
+
+export function getOperatorToken(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem(OPERATOR_TOKEN_STORAGE) ?? "";
+}
+
+export function setOperatorToken(token: string) {
+  sessionStorage.setItem(OPERATOR_TOKEN_STORAGE, token);
+}
+
+export function clearOperatorToken() {
+  sessionStorage.removeItem(OPERATOR_TOKEN_STORAGE);
+}
+
+export function clearDeskCredentials() {
+  clearLabKey();
+  clearOperatorToken();
+}
+
+export function deskNeedsUnlock(health: HealthData): boolean {
+  if (!health.labKeyRequired && !health.operatorAuthRequired) return false;
+  return !getLabKey() && !getOperatorToken();
 }
 
 export class ApiError extends Error {
@@ -257,6 +290,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const labKey = getLabKey();
   if (labKey) headers.set("X-Lab-Key", labKey);
+  const operatorToken = getOperatorToken();
+  if (operatorToken) headers.set("X-Operator-Token", operatorToken);
   const response = await fetch(path, {
     ...init,
     headers,
@@ -281,10 +316,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () =>
-    request<{ status: string; aiEnabled: boolean; labKeyRequired: boolean }>(
-      "/api/health",
-    ),
+  health: () => request<HealthData>("/api/health"),
+
+  signInOperator: (callsign: string, passphrase: string) =>
+    request<{ token: string; operator: OperatorData }>("/api/auth/operator", {
+      method: "POST",
+      body: JSON.stringify({ callsign, passphrase }),
+    }),
+
+  me: () => request<{ operator: OperatorData }>("/api/auth/me"),
 
   stats: () => request<StatsData>("/api/stats"),
 
@@ -326,10 +366,13 @@ export const api = {
 
   listOperators: () => request<{ operators: OperatorData[] }>("/api/operators"),
 
-  createOperator: (callsign: string) =>
+  createOperator: (callsign: string, passphrase?: string) =>
     request<OperatorData>("/api/operators", {
       method: "POST",
-      body: JSON.stringify({ callsign }),
+      body: JSON.stringify({
+        callsign,
+        passphrase: passphrase || undefined,
+      }),
     }),
 
   sendMonitorPrompt: (sessionId: string, text: string) =>
