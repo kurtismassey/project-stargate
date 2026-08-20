@@ -11,6 +11,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from PIL import Image
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+_PROMPT_TEMPLATE = (Path(__file__).parent / "prompt.txt").read_text(encoding="utf-8")
+
 
 def compress_image(
     image_data: bytes, max_width: int = 800, max_height: int = 600, quality: int = 85
@@ -118,11 +120,7 @@ async def generate_target_model_image(
         temperature=0.3,
     )
 
-    prompt_path = Path(__file__).parent / "prompt.txt"
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        prompt_template = f.read()
-
-    prompt = prompt_template.format(description=description)
+    prompt = _PROMPT_TEMPLATE.format(description=description)
 
     content = [
         {

@@ -6,6 +6,8 @@ from core.models.session import ChatMessage
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+_PROMPT_TEMPLATE = (Path(__file__).parent / "prompt.txt").read_text(encoding="utf-8")
+
 
 async def get_monitor_response(
     chat_history: list[ChatMessage],
@@ -29,17 +31,13 @@ async def get_monitor_response(
         temperature=0.7,
     )
 
-    prompt_path = Path(__file__).parent / "prompt.txt"
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        prompt_template = f.read()
-
     monitor = llm.with_structured_output(MonitorResponse)
 
     chat_history_str = "\n".join([f"{m.user}: {m.text}" for m in chat_history])
     new_message = f"\n{message.user}: {message.text}"
     full_chat = chat_history_str + new_message
 
-    prompt = prompt_template.format(input=full_chat)
+    prompt = _PROMPT_TEMPLATE.format(input=full_chat)
     content = [{"type": "text", "text": prompt}]
 
     if drawing_data:
