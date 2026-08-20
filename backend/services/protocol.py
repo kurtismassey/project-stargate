@@ -89,14 +89,22 @@ CRV_STAGE_ALLOWED: dict[int, frozenset[EventKind]] = {
     ),
 }
 
-# ERV keeps blindness, lock, and the typed transcript but not stage gating.
-ERV_ALLOWED: frozenset[EventKind] = frozenset(
+# Free-form protocols keep blindness, lock, and the typed transcript
+# but skip CRV stage gating. Shared by ERV (narrative), ARV (future
+# feedback photograph), and WRV (written / phonetic) [CIA-BRIEF].
+FREEFORM_ALLOWED: frozenset[EventKind] = frozenset(
     {
         EventKind.SENSORY,
         EventKind.DIMENSIONAL,
         EventKind.EMOTIONAL_IMPACT,
         EventKind.SKETCH,
     }
+)
+ERV_ALLOWED = FREEFORM_ALLOWED
+ARV_ALLOWED = FREEFORM_ALLOWED
+WRV_ALLOWED = FREEFORM_ALLOWED
+FREEFORM_PROTOCOLS: frozenset[Protocol] = frozenset(
+    {Protocol.ERV, Protocol.ARV, Protocol.WRV}
 )
 
 
@@ -206,18 +214,19 @@ def validate_event(
             "returning to the signal line.",
         )
 
-    if protocol == Protocol.ERV:
-        if kind in ERV_ALLOWED:
+    if protocol in FREEFORM_PROTOCOLS:
+        if kind in FREEFORM_ALLOWED:
             return None
         return Refusal(
             "not_in_protocol",
-            f"{kind.value} is not part of the ERV transcript vocabulary.",
+            f"{kind.value} is not part of the {protocol.value.upper()} "
+            "transcript vocabulary.",
         )
 
     if protocol != Protocol.CRV:
         return Refusal(
             "not_in_protocol",
-            f"Protocol {protocol.value} does not run structured sessions yet.",
+            f"Protocol {protocol.value} does not run structured sessions.",
         )
 
     if current_stage not in CRV_STAGES:

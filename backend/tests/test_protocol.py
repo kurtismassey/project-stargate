@@ -154,3 +154,25 @@ class TestERV:
         refusal = validate_event(Protocol.ERV, None, EventKind.SENSORY, events)
         assert refusal is not None
         assert refusal.code == "aol_open"
+
+
+class TestARVAndWRV:
+    def test_arv_uses_freeform_vocabulary(self):
+        assert validate_event(Protocol.ARV, None, EventKind.SENSORY, []) is None
+        assert validate_event(Protocol.ARV, None, EventKind.VIEWER_NOTE, []) is None
+        refusal = validate_event(Protocol.ARV, None, EventKind.IDEOGRAM, [])
+        assert refusal is not None
+        assert refusal.code == "not_in_protocol"
+
+    def test_wrv_uses_freeform_vocabulary(self):
+        assert validate_event(Protocol.WRV, None, EventKind.VIEWER_NOTE, []) is None
+        assert validate_event(Protocol.WRV, None, EventKind.SENSORY, []) is None
+        refusal = validate_event(Protocol.WRV, None, EventKind.IDEOGRAM, [])
+        assert refusal is not None
+        assert refusal.code == "not_in_protocol"
+
+    def test_arv_still_gates_on_open_aol(self):
+        events = [EventView(kind=EventKind.AOL, stage=None)]
+        refusal = validate_event(Protocol.ARV, None, EventKind.SENSORY, events)
+        assert refusal is not None
+        assert refusal.code == "aol_open"

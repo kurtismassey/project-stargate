@@ -173,3 +173,35 @@ class TestERVSessions:
         session = make_session(client, protocol="erv")
         response = client.post(f"/api/sessions/{session['id']}/advance")
         assert response.status_code == 422
+
+
+class TestWRVSessions:
+    def test_wrv_session_has_no_stage(self, client):
+        session = make_session(client, protocol="wrv")
+        assert session["currentStage"] is None
+        assert session["tasking"]["protocol"] == "wrv"
+
+    def test_wrv_accepts_written_notes(self, client):
+        session = make_session(client, protocol="wrv")
+        response = append(
+            client, session["id"], "viewer_note", {"text": "kuh... water"}
+        )
+        assert response.status_code == 201
+
+    def test_wrv_refuses_ideogram(self, client):
+        session = make_session(client, protocol="wrv")
+        response = append(client, session["id"], "ideogram", {})
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == "not_in_protocol"
+
+    def test_wrv_opening_patter_is_written(self, client):
+        session = make_session(client, protocol="wrv")
+        detail = client.get(f"/api/sessions/{session['id']}").json()
+        prompts = [
+            e["payload"]["text"]
+            for e in detail["events"]
+            if e["kind"] == "monitor_prompt"
+        ]
+        assert prompts
+        assert "Write what arrives" in prompts[0]
+        assert "Stage I" not in prompts[0]

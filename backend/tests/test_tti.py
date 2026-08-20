@@ -27,6 +27,55 @@ class TestSeries:
         entry = next(s for s in listed if s["id"] == series["id"])
         assert entry["taskingCount"] == 3
 
+    def test_batch_seal_creates_sequential_trials(self, client):
+        series = client.post(
+            "/api/series", json={"name": "TTI Batch", "trialCount": 5}
+        ).json()
+        assert series["taskingCount"] == 5
+        detail = client.get(f"/api/series/{series['id']}").json()
+        positions = [t["seriesPosition"] for t in detail["trials"]]
+        assert positions == [1, 2, 3, 4, 5]
+        assert all(t["sessionId"] is None for t in detail["trials"])
+        assert all(t["cue"] == t["taskingNumber"] for t in detail["trials"])
+
+    def test_append_trials_continues_positions(self, client):
+        series = client.post("/api/series", json={"name": "TTI Grow"}).json()
+        first = client.post(
+            f"/api/series/{series['id']}/trials",
+            json={"trialCount": 2, "protocol": "crv"},
+        )
+        assert first.status_code == 201
+        second = client.post(
+            f"/api/series/{series['id']}/trials",
+            json={"trialCount": 3, "protocol": "erv"},
+        )
+        assert second.status_code == 201
+        positions = [t["seriesPosition"] for t in second.json()["trials"]]
+        assert positions == [1, 2, 3, 4, 5]
+        protocols = [t["protocol"] for t in second.json()["trials"]]
+        assert protocols == ["crv", "crv", "erv", "erv", "erv"]
+
+    def test_series_detail_stays_blind(self, client):
+        from tests.test_blindness import _assert_sealed, _fetch_sealed_targets
+
+        series = client.post(
+            "/api/series", json={"name": "Blind Run", "trialCount": 3}
+        ).json()
+        detail = client.get(f"/api/series/{series['id']}")
+        targets = _fetch_sealed_targets()
+        _assert_sealed(detail.text, targets, "GET /api/series/{id}")
+
+    def test_lag_targets_available_after_lock(self, client):
+        _, sessions = make_series_with_trials(client, count=3)
+        middle = sessions[1]["id"]
+        client.post(f"/api/sessions/{middle}/lock")
+        lags = client.get(f"/api/sessions/{middle}/lag-targets").json()["lags"]
+        by_lag = {row["lag"]: row for row in lags}
+        assert by_lag[-1]["exists"] is True
+        assert by_lag[1]["exists"] is True
+        assert by_lag[-1]["target"]["payloadB64"]
+        assert by_lag[2]["exists"] is False
+
 
 class TestJudging:
     def test_rank_order_judgment(self, client):

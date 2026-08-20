@@ -16,6 +16,7 @@ from core.db import get_session
 from core.models.rv import (
     AnalystReport,
     CueType,
+    DisplacementScore,
     EventKind,
     FeedbackPolicy,
     JudgeKind,
@@ -135,6 +136,17 @@ class CreateSeriesRequest(BaseModel):
     feedback_policy: FeedbackPolicy = Field(
         default=FeedbackPolicy.IMMEDIATE, alias="feedbackPolicy"
     )
+    trial_count: int = Field(default=0, alias="trialCount")
+    protocol: Protocol = Protocol.CRV
+    environment: SessionEnvironment = SessionEnvironment.MONITORED_AI
+    cue_type: CueType = Field(default=CueType.TASKING_NUMBER, alias="cueType")
+
+
+class SealTrialsRequest(BaseModel):
+    trial_count: int = Field(alias="trialCount")
+    protocol: Protocol = Protocol.CRV
+    environment: SessionEnvironment = SessionEnvironment.MONITORED_AI
+    cue_type: CueType = Field(default=CueType.TASKING_NUMBER, alias="cueType")
 
 
 @router.get("/series")
@@ -169,7 +181,94 @@ async def create_series(
     db.add(series)
     await db.commit()
     await db.refresh(series)
-    return serialize_series(series, 0)
+    sealed = 0
+    if body.trial_count > 0:
+        try:
+            taskings = await session_engine.seal_series_trials(
+                db,
+                series.id,
+                trial_count=body.trial_count,
+                protocol=body.protocol,
+                cue_type=body.cue_type,
+                environment=body.environment,
+            )
+            sealed = len(taskings)
+        except EngineError as error:
+            _raise(error)
+    return serialize_series(series, sealed)
+
+
+async def _series_bundle(db: AsyncSession, series: Series) -> dict:
+    taskings = list(
+        (
+            await db.exec(
+                select(Tasking)
+                .where(Tasking.series_id == series.id)
+                .order_by(col(Tasking.series_position))
+            )
+        ).all()
+    )
+    sessions = (await db.exec(select(RVSession))).all()
+    session_by_tasking = {s.tasking_id: s for s in sessions}
+
+    scores = list(
+        (
+            await db.exec(
+                select(DisplacementScore).where(DisplacementScore.series_id == series.id)
+            )
+        ).all()
+    )
+    lag_summary: dict[str, dict] = {}
+    for score in scores:
+        key = str(score.lag)
+        entry = lag_summary.setdefault(key, {"trials": 0, "hits": 0})
+        entry["trials"] += 1
+        entry["hits"] += 1 if score.is_hit else 0
+
+    trials = []
+    for tasking in taskings:
+        target = await db.get(SealedTarget, tasking.target_id)
+        assert target is not None
+        data = serialize_tasking(tasking, target)
+        linked = session_by_tasking.get(tasking.id)
+        data["sessionId"] = str(linked.id) if linked else None
+        data["sessionStatus"] = linked.status if linked else None
+        trials.append(data)
+
+    bundle = serialize_series(series, len(taskings))
+    bundle["trials"] = trials
+    bundle["displacement"] = lag_summary
+    return bundle
+
+
+@router.get("/series/{series_id}")
+async def get_series(series_id: UUID, db: AsyncSession = Depends(get_session)):
+    series = await db.get(Series, series_id)
+    if series is None:
+        raise HTTPException(404, "Series not found")
+    return await _series_bundle(db, series)
+
+
+@router.post("/series/{series_id}/trials", status_code=201)
+async def seal_series_trials(
+    series_id: UUID,
+    body: SealTrialsRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    try:
+        await session_engine.seal_series_trials(
+            db,
+            series_id,
+            trial_count=body.trial_count,
+            protocol=body.protocol,
+            cue_type=body.cue_type,
+            environment=body.environment,
+        )
+    except EngineError as error:
+        _raise(error)
+    series = await db.get(Series, series_id)
+    assert series is not None
+    return await _series_bundle(db, series)
 
 
 # ---------------------------------------------------------------- taskings
@@ -369,6 +468,14 @@ async def get_judging_pool(session_id: UUID, db: AsyncSession = Depends(get_sess
     except EngineError as error:
         _raise(error)
     return {"pool": [serialize_pool_member(m) for m in members]}
+
+
+@router.get("/sessions/{session_id}/lag-targets")
+async def get_lag_targets(session_id: UUID, db: AsyncSession = Depends(get_session)):
+    try:
+        return {"lags": await session_engine.lag_targets(db, session_id)}
+    except EngineError as error:
+        _raise(error)
 
 
 @router.post("/sessions/{session_id}/judgments", status_code=201)

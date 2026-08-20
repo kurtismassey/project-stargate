@@ -46,6 +46,9 @@ async def _relay_frames(websocket: WebSocket, session_id: str) -> None:
 
 async def handle_chamber_socket(websocket: WebSocket, session_id: str) -> None:
     await session_manager.connect(websocket, session_id)
+    await websocket.send_text(
+        json.dumps({"type": "hello", "sessionId": session_id})
+    )
     try:
         relay_task = asyncio.create_task(_relay_frames(websocket, session_id))
         heartbeat_task = asyncio.create_task(_send_heartbeats(websocket))

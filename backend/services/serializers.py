@@ -32,6 +32,7 @@ def serialize_tasking(tasking: Tasking, target: SealedTarget) -> dict:
         "environment": tasking.environment,
         "seriesId": str(tasking.series_id) if tasking.series_id else None,
         "seriesPosition": tasking.series_position,
+        "arvPairId": str(tasking.arv_pair_id) if tasking.arv_pair_id else None,
         "createdAt": tasking.created_at.isoformat(),
         "sealedAt": tasking.sealed_at.isoformat(),
     }

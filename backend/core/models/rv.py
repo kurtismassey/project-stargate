@@ -141,6 +141,25 @@ class Series(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
 
 
+class ArvPair(SQLModel, table=True):
+    """Two sealed associates for associative remote viewing.
+
+    The viewer is tasked on the future feedback photograph. The engine
+    seals which side is the true associate. Labels stay server-side until
+    after lock. Judging is binary rank-order of the two sides.
+    """
+
+    __tablename__ = "arv_pairs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    pool_id: UUID = Field(foreign_key="target_pools.id", index=True)
+    side_a_id: UUID = Field(foreign_key="sealed_targets.id")
+    side_b_id: UUID = Field(foreign_key="sealed_targets.id")
+    label_a: str = Field(default="A")
+    label_b: str = Field(default="B")
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
 class Tasking(SQLModel, table=True):
     __tablename__ = "taskings"
 
@@ -153,6 +172,7 @@ class Tasking(SQLModel, table=True):
 
     series_id: UUID | None = Field(default=None, foreign_key="series.id", index=True)
     series_position: int | None = Field(default=None)
+    arv_pair_id: UUID | None = Field(default=None, foreign_key="arv_pairs.id", index=True)
 
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
     sealed_at: datetime = Field(default_factory=utcnow, nullable=False)

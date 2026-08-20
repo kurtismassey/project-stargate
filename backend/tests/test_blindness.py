@@ -154,3 +154,45 @@ class TestFeedbackAfterLock:
         member_text = json.dumps(pool)
         assert "true" not in [str(m.get("isTrue")) for m in pool]
         assert "title" not in member_text.lower() or all("title" not in m for m in pool)
+
+
+class TestWebSocketBlindness:
+    def test_chamber_frames_never_contain_target_material(self, client):
+        """Walk /ws/chamber frames the same way REST payloads are walked."""
+        tasking = client.post("/api/taskings", json={}).json()
+        session = client.post("/api/sessions", json={"taskingId": tasking["id"]}).json()
+        session_id = session["id"]
+        targets = _fetch_sealed_targets()
+        assert targets
+
+        frames: list[str] = []
+        with client.websocket_connect(f"/ws/chamber/{session_id}") as socket:
+            hello = socket.receive_text()
+            frames.append(hello)
+            hello_body = json.loads(hello)
+            assert hello_body["type"] == "hello"
+            assert hello_body["sessionId"] == session_id
+
+            client.post(
+                f"/api/sessions/{session_id}/events",
+                json={"kind": "ideogram", "payload": {"strokes": []}},
+            )
+            event_frame = socket.receive_text()
+            frames.append(event_frame)
+            event_body = json.loads(event_frame)
+            assert event_body["type"] == "event"
+            assert event_body["event"]["kind"] == "ideogram"
+
+            client.post(f"/api/sessions/{session_id}/lock")
+            session_frame = socket.receive_text()
+            frames.append(session_frame)
+            session_body = json.loads(session_frame)
+            assert session_body["type"] == "session"
+            assert session_body["session"]["status"] == "locked"
+
+        for index, frame in enumerate(frames):
+            _assert_sealed(frame, targets, f"ws frame {index}")
+            parsed = json.loads(frame)
+            dumped = json.dumps(parsed)
+            assert "payloadB64" not in dumped
+            assert "payload_b64" not in dumped

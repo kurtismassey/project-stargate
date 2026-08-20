@@ -169,9 +169,32 @@ async def _migration_0002_import_legacy_sessions(engine: AsyncEngine) -> None:
         logger.info(f"Imported {len(legacy_sessions)} legacy sessions")
 
 
+async def _migration_0003_arv_pairs(engine: AsyncEngine) -> None:
+    """Add arv_pairs and taskings.arv_pair_id on databases that already
+    applied create_all before those objects existed."""
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+        dialect = conn.dialect.name
+        if dialect == "sqlite":
+            result = await conn.execute(text("PRAGMA table_info(taskings)"))
+            columns = {row[1] for row in result.fetchall()}
+            if "arv_pair_id" not in columns:
+                await conn.execute(
+                    text("ALTER TABLE taskings ADD COLUMN arv_pair_id VARCHAR")
+                )
+        else:
+            await conn.execute(
+                text(
+                    "ALTER TABLE taskings ADD COLUMN IF NOT EXISTS "
+                    "arv_pair_id UUID"
+                )
+            )
+
+
 MIGRATIONS = [
     (1, "create research schema", _migration_0001_create_schema),
     (2, "import legacy prototype sessions", _migration_0002_import_legacy_sessions),
+    (3, "arv pairs and tasking associate binding", _migration_0003_arv_pairs),
 ]
 
 
