@@ -106,8 +106,8 @@ Tasking, then chamber, then structured session, then lock, then feedback, then j
 
 ### F15. Closed lab
 
-- When `LAB_KEY` is set, mutating ops (tasking, vault, start session, judging, export) require the `X-Lab-Key` header. Chamber writes on an existing session stay open so a viewer does not hold the key.
-- When the key is empty the lab stays open, which is the default for local work and tests.
+- When `LAB_KEY` is set, mutating ops (tasking, vault, start session, judging, export) require the `X-Lab-Key` header or a valid operator token. Chamber writes on an existing session stay open so a viewer does not hold the key.
+- When the key is empty and no operator has a passphrase the lab stays open, which is the default for local work and tests.
 
 ### F16. Operators and human-monitor pairing
 
@@ -115,6 +115,13 @@ Tasking, then chamber, then structured session, then lock, then feedback, then j
 - Environment `monitored_human` opens a monitor desk at `/monitor/{sessionId}`. The desk sees live paper, prescribed patter, and lock. It never unseals the target. Feedback and judging stay on the ops chamber.
 - Human patter is refused if it names or fishes for content. The same leading filter the AI monitor uses.
 
+### F17. Operator accounts
+
+- An operator can set a passphrase. The server stores a PBKDF2 hash, never the secret.
+- Once any operator has a hash, mutating ops require `X-Operator-Token` or `X-Lab-Key`. Creating the first keyed operator stays open so the desk can close itself.
+- `POST /api/auth/operator` issues a session token. Only the SHA-256 of the token is stored. `GET /api/auth/me` returns the signed-in callsign.
+- The roster exposes `locked`, never the hash or a live token.
+
 ## Out of scope for this slice
 
-Outbound-beacon targets, per-operator login secrets beyond the shared lab key.
+Outbound-beacon targets.

@@ -116,7 +116,16 @@ The multimodal transcript. One append-only row per event, replacing the old chat
 | Field | Why |
 |---|---|
 | `id`, `callsign` | Named lab staff. The CRV pair is viewer plus monitor [CRV-MANUAL] |
+| `passphrase_hash` | PBKDF2 verifier. Never serialized. Empty means this callsign is still open |
 | `notes`, `created_at` | Roster audit |
+
+## operator_tokens
+
+| Field | Why |
+|---|---|
+| `id`, `operator_id` | Issued session bound to one operator |
+| `token_hash` | SHA-256 of the secret sent once at sign-in. The raw token is not stored |
+| `created_at` | Audit |
 
 ## viewers
 
