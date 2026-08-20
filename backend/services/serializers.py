@@ -9,6 +9,7 @@ blindness invariant [PAT-REPORT], proven in tests/test_blindness.py.
 
 from core.models.rv import (
     CueType,
+    Operator,
     RVSession,
     RVSessionStatus,
     SealedTarget,
@@ -62,6 +63,24 @@ def serialize_session(
         "leadingFlagCount": session.leading_flag_count,
         "source": session.source,
         "tasking": serialize_tasking(tasking, target),
+    }
+
+
+def serialize_operator(
+    operator: Operator,
+    *,
+    sessions_operated: int = 0,
+    sessions_monitored: int = 0,
+) -> dict:
+    """Public staff record. The hash never leaves."""
+    return {
+        "id": str(operator.id),
+        "callsign": operator.callsign,
+        "notes": operator.notes,
+        "locked": bool(operator.passphrase_hash),
+        "createdAt": operator.created_at.isoformat(),
+        "sessionsOperated": sessions_operated,
+        "sessionsMonitored": sessions_monitored,
     }
 
 
@@ -122,6 +141,7 @@ __all__ = [
     "serialize_pool",
     "serialize_series",
     "serialize_pool_member",
+    "serialize_operator",
     "session_is_locked",
     "CueType",
 ]

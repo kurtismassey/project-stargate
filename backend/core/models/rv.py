@@ -203,6 +203,18 @@ class Operator(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     callsign: str = Field(index=True, unique=True)
     notes: str = Field(default="")
+    passphrase_hash: str = Field(default="")
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
+class OperatorToken(SQLModel, table=True):
+    """Issued at sign-in. The raw token leaves once. Only the hash stays."""
+
+    __tablename__ = "operator_tokens"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    operator_id: UUID = Field(foreign_key="operators.id", index=True)
+    token_hash: str = Field(index=True)
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
 
 

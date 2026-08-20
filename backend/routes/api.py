@@ -8,6 +8,7 @@ WebSocket (routes/websocket.py).
 import asyncio
 import json
 import secrets
+from typing import NoReturn
 from uuid import UUID
 
 from core.config.logger import logger
@@ -39,8 +40,17 @@ from services import export as research_export
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from services import session_engine
+from services.auth import (
+    AuthError,
+    any_passphrase_set,
+    hash_passphrase,
+    issue_token,
+    resolve_token,
+    sign_in,
+)
 from services.serializers import (
     serialize_event,
+    serialize_operator,
     serialize_pool,
     serialize_pool_member,
     serialize_series,
@@ -55,13 +65,26 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 router = APIRouter(prefix="/api")
 
 
-def require_lab(x_lab_key: str | None = Header(default=None, alias="X-Lab-Key")):
-    """Gate mutating ops when LAB_KEY is set. Chamber writes stay open."""
-    expected = settings.LAB_KEY
+def _lab_key_matches(offered: str | None) -> bool:
+    expected = settings.LAB_KEY or ""
     if not expected:
+        return False
+    given = offered or ""
+    return len(given) == len(expected) and secrets.compare_digest(given, expected)
+
+
+async def require_lab(
+    db: AsyncSession = Depends(get_session),
+    x_lab_key: str | None = Header(default=None, alias="X-Lab-Key"),
+    x_operator_token: str | None = Header(default=None, alias="X-Operator-Token"),
+):
+    """Gate mutating ops when the lab key is set or any operator has a
+    passphrase. Chamber writes stay open."""
+    if _lab_key_matches(x_lab_key):
         return
-    offered = x_lab_key or ""
-    if len(offered) != len(expected) or not secrets.compare_digest(offered, expected):
+    if x_operator_token and await resolve_token(db, x_operator_token):
+        return
+    if settings.LAB_KEY:
         raise HTTPException(
             status_code=401,
             detail={
@@ -69,6 +92,21 @@ def require_lab(x_lab_key: str | None = Header(default=None, alias="X-Lab-Key"))
                 "message": "This desk requires a lab key.",
             },
         )
+    if await any_passphrase_set(db):
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "operator_token_required",
+                "message": "Sign in as an operator.",
+            },
+        )
+
+
+def _auth_http(error: AuthError) -> NoReturn:
+    raise HTTPException(
+        status_code=error.status_code,
+        detail={"code": error.code, "message": error.message},
+    )
 
 
 def _raise(error: EngineError) -> None:
@@ -83,11 +121,12 @@ async def _broadcast(session_id: UUID, message: dict) -> None:
 
 
 @router.get("/health")
-async def health():
+async def health(db: AsyncSession = Depends(get_session)):
     return {
         "status": "ok",
         "aiEnabled": settings.ai_enabled,
         "labKeyRequired": bool(settings.LAB_KEY),
+        "operatorAuthRequired": await any_passphrase_set(db),
     }
 
 
@@ -465,6 +504,12 @@ class CreateViewerRequest(BaseModel):
 class CreateOperatorRequest(BaseModel):
     callsign: str
     notes: str = ""
+    passphrase: str | None = None
+
+
+class OperatorSignInRequest(BaseModel):
+    callsign: str
+    passphrase: str = ""
 
 
 class AppendEventRequest(BaseModel):
@@ -912,14 +957,11 @@ async def list_operators(db: AsyncSession = Depends(get_session)):
             as_monitor[key] = as_monitor.get(key, 0) + 1
     return {
         "operators": [
-            {
-                "id": str(row.id),
-                "callsign": row.callsign,
-                "notes": row.notes,
-                "createdAt": row.created_at.isoformat(),
-                "sessionsOperated": as_operator.get(str(row.id), 0),
-                "sessionsMonitored": as_monitor.get(str(row.id), 0),
-            }
+            serialize_operator(
+                row,
+                sessions_operated=as_operator.get(str(row.id), 0),
+                sessions_monitored=as_monitor.get(str(row.id), 0),
+            )
             for row in listed
         ]
     }
@@ -938,16 +980,63 @@ async def create_operator(
     if body.notes and not operator.notes:
         operator.notes = body.notes
         db.add(operator)
+    token = None
+    if body.passphrase is not None:
+        if not body.passphrase.strip():
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "empty_passphrase",
+                    "message": "Passphrase is empty.",
+                },
+            )
+        if operator.passphrase_hash:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "already_locked",
+                    "message": "This operator already has a passphrase.",
+                },
+            )
+        operator.passphrase_hash = hash_passphrase(body.passphrase)
+        db.add(operator)
     await db.commit()
     await db.refresh(operator)
-    return {
-        "id": str(operator.id),
-        "callsign": operator.callsign,
-        "notes": operator.notes,
-        "createdAt": operator.created_at.isoformat(),
-        "sessionsOperated": 0,
-        "sessionsMonitored": 0,
-    }
+    if body.passphrase:
+        token = await issue_token(db, operator)
+    payload = serialize_operator(operator)
+    if token:
+        payload["token"] = token
+    return payload
+
+
+@router.post("/auth/operator")
+async def operator_sign_in(
+    body: OperatorSignInRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    try:
+        operator, token = await sign_in(db, body.callsign, body.passphrase)
+    except AuthError as error:
+        _auth_http(error)
+    return {"token": token, "operator": serialize_operator(operator)}
+
+
+@router.get("/auth/me")
+async def auth_me(
+    db: AsyncSession = Depends(get_session),
+    x_operator_token: str | None = Header(default=None, alias="X-Operator-Token"),
+):
+    operator = await resolve_token(db, x_operator_token or "")
+    if operator is None:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "operator_token_required",
+                "message": "Sign in as an operator.",
+            },
+        )
+    return {"operator": serialize_operator(operator)}
 
 
 @router.post("/sessions/{session_id}/monitor-prompts", status_code=201)

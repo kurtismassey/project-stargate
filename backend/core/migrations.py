@@ -13,6 +13,7 @@ from core.models.rv import (
     AnalystReport,
     AuditLog,
     EventKind,
+    OperatorToken,
     RVSession,
     RVSessionStatus,
     SealedTarget,
@@ -321,6 +322,16 @@ async def _migration_0006_operators(engine: AsyncEngine) -> None:
         )
 
 
+async def _migration_0007_operator_auth(engine: AsyncEngine) -> None:
+    """Passphrase hashes on operators and the token table."""
+    assert OperatorToken.__tablename__ == "operator_tokens"
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+        await _add_column(
+            conn, "operators", "passphrase_hash", "VARCHAR DEFAULT ''", "VARCHAR"
+        )
+
+
 MIGRATIONS = [
     (1, "create research schema", _migration_0001_create_schema),
     (2, "import legacy prototype sessions", _migration_0002_import_legacy_sessions),
@@ -328,6 +339,7 @@ MIGRATIONS = [
     (4, "viewers and May figure of merit", _migration_0004_viewers_and_fom),
     (5, "fuzzy-set descriptor encodings", _migration_0005_fuzzy_descriptors),
     (6, "operators and human-monitor pairing", _migration_0006_operators),
+    (7, "operator passphrases and session tokens", _migration_0007_operator_auth),
 ]
 
 
