@@ -465,6 +465,18 @@ async def run_analysis(session_id: UUID, db: AsyncSession = Depends(get_session)
         report = await run_analyst(db, session_id)
     except EngineError as error:
         _raise(error)
+    except Exception as error:
+        # The analyst fails closed. Model or quota errors never surface as
+        # raw exceptions and never touch the session record.
+        logger.error(f"Analyst failed closed for {session_id}: {error}")
+        raise HTTPException(
+            502,
+            detail={
+                "code": "analyst_unavailable",
+                "message": "The analyst model is unavailable. Judging "
+                "remains the score of record.",
+            },
+        ) from error
     return {
         "id": str(report.id),
         "model": report.model,

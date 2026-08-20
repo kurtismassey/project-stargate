@@ -100,15 +100,15 @@ async def seed_default_pool(db: AsyncSession) -> None:
     from agents.target.tool import compress_image
 
     now = utcnow()
-    for path in image_files:
+    for index, path in enumerate(image_files, start=1):
         payload = compress_image(path.read_bytes(), 800, 600, 85)
-        title = path.stem.replace("-", " ").replace("_", " ").title()
         db.add(
             SealedTarget(
                 pool_id=pool.id,
                 payload_b64=payload,
                 payload_sha256=sha256_b64(payload),
-                title=title,
+                title=f"Reference Target {index:02d}",
+                feedback_notes=f"Bundled reference image {path.name}",
                 source="bundled",
                 sealed_at=now,
             )
