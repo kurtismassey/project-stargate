@@ -19,7 +19,7 @@ The protocols are implemented from the declassified record, not from folklore. T
 3. **Structure.** Ideogram, A and B components, sensory data, dimensionals, the Stage IV matrix, interrogation, rendering. AOL declarations and breaks are first-class transcript events with timestamps.
 4. **Lock.** Irreversible. The transcript closes and only then do feedback, judging, and analysis open. Blindness before lock is enforced by the API and proven by test.
 5. **Feedback.** The seal breaks, the target reveals, and feedback latency is recorded (Tart's training variable).
-6. **Judgment.** A blind judge rank-orders the true target against pool decoys, or the two ARV associates. That rank, plus May's figure of merit (accuracy × reliability), is the score of record. The LLM analyst gives an advisory second opinion, never the official score. Sessions belong to named viewers so population statistics group the way Utts required.
+6. **Judgment.** A blind judge rank-orders the true target against pool decoys, or the two ARV associates. That rank is the official hit statistic. When the target and the transcript both have descriptor encodings, May's figure of merit is the fuzzy-set product, accuracy `|T ∩ R| / |T|` times reliability `|T ∩ R| / |R|`. The LLM analyst gives an advisory second opinion, never the official score. Sessions belong to named viewers so population statistics group the way Utts required.
 
 ## Protocol enforcement
 
@@ -42,7 +42,7 @@ make install
 make dev
 ```
 
-Backend on `http://localhost:8000`, frontend on `https://localhost:3000`. Optionally populate `.env` from `example.env` to enable AI assistance.
+Backend on `http://localhost:8000`, frontend on `https://localhost:3000`. Optionally populate `.env` from `example.env` to enable AI assistance or set `LAB_KEY` to close the ops desk. Postgres is `DATABASE_URL=postgresql+asyncpg://...`. A compose file at `docker-compose.yml` starts one.
 
 ```bash
 make test      # backend pytest + frontend vitest

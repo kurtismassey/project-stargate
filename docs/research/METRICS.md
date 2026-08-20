@@ -23,6 +23,7 @@ A field earns its place by supporting one of four uses. Protocol enforcement dur
 | `coordinates` | Optional geographic coordinates for coordinate-cued targets [PUTHOFF-CIA] |
 | `title`, `feedback_notes` | Shown only at feedback |
 | `source` | Provenance (operator upload, legacy import) for the audit trail |
+| `descriptors` | May/SAIC membership map over the shared descriptor vocabulary. Target material. Never serialized toward a viewer before lock [MAY-FOM] |
 | `created_at`, `sealed_at` | When the target entered the pool and when it was sealed to a tasking |
 
 Blindness invariant. `payload_b64`, `title`, `feedback_notes`, and `coordinates` of an unsealed pool member never appear in any payload sent to a viewer or live monitor before the session locks. Enforced in the API layer and proven by test.
@@ -101,9 +102,11 @@ The multimodal transcript. One append-only row per event, replacing the old chat
 | `pool_target_ids` | The exact pool presented, in presentation order, for reproducibility [PAT-REPORT] |
 | `rankings` | JSON list of (target_id, rank) |
 | `rank_of_true_target`, `pool_size` | The scored outcome. First-place probability under the null is 1/pool_size [UTTS-1995] |
-| `accuracy` | Graded rank, `(N - rank + 1) / N`. Rank 1 is 1.0 [MAY-FOM] |
-| `reliability` | Signal events / (signal + declared AOL). Empty transcript is 0 [MAY-FOM] [UTTS-1995] |
-| `figure_of_merit` | `accuracy × reliability`, May's official composite [MAY-FOM] |
+| `accuracy` | Official May accuracy `|T ∩ R| / |T|` when both encodings have mass. Otherwise graded rank `(N - rank + 1) / N` [MAY-FOM] |
+| `reliability` | Official May reliability `|T ∩ R| / |R|` when both encodings have mass. Otherwise signal / (signal + declared AOL) [MAY-FOM] [UTTS-1995] |
+| `figure_of_merit` | `accuracy × reliability`. Official composite [MAY-FOM] |
+| `fom_method` | `fuzzy` or `rank_process`. Says which definition filled the three scores |
+| `response_descriptors` | Judge encoding of the transcript against the same vocabulary. Compared to `sealed_targets.descriptors`, never shown the target memberships [MAY-FOM] |
 | `notes`, `created_at` | Judge commentary, audit |
 
 ## viewers

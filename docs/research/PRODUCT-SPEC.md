@@ -94,14 +94,21 @@ Tasking, then chamber, then structured session, then lock, then feedback, then j
 
 ### F14. Vault and research packages
 
-- Operators seal image and coordinate-site targets into pools from the vault. Only a SHA-256 receipt leaves the server [PAT-REPORT] [F1].
+- Operators seal image and coordinate-site targets into pools from the vault. Only a SHA-256 receipt leaves the server. Descriptor memberships stay off the receipt [PAT-REPORT] [F1] [MAY-FOM].
 - After lock, a session or series can be exported as one unedited JSON package (transcript, judgment, FoM, target, seal hash, audit). Active sessions cannot be exported [PAT-REPORT].
 
 ### F13. Viewers and figure of merit
 
 - A `viewers` row is the population unit. Sessions bind a viewer. The ops roster shows sessions, first-place rate, and mean FoM per source [UTTS-1995].
-- Each judgment stores accuracy (graded rank), reliability (signal vs declared AOL), and figure of merit (the product), May's official composite [MAY-FOM].
+- Operators encode sealed targets against a shared descriptor vocabulary at vault time. After lock the judge encodes the transcript against the same list, without seeing the target memberships [MAY-FOM].
+- When both encodings have mass, official accuracy is `|T ∩ R| / |T|`, official reliability is `|T ∩ R| / |R|`, and figure of merit is the product. That is May's published method. Rank-order remains the official hit statistic [UTTS-1995].
+- When either encoding is empty, the stored composite falls back to graded rank × process reliability so older sessions still have a number. `fom_method` records which definition was used.
+
+### F15. Closed lab
+
+- When `LAB_KEY` is set, mutating ops (tasking, vault, start session, judging, export) require the `X-Lab-Key` header. Chamber writes on an existing session stay open so a viewer does not hold the key.
+- When the key is empty the lab stays open, which is the default for local work and tests.
 
 ## Out of scope for this slice
 
-Auth and multi-operator tenancy, human-monitor pairing UX beyond live ink watching, outbound-beacon targets.
+Named operator accounts beyond a shared lab key, human-monitor pairing UX beyond live ink watching, outbound-beacon targets.

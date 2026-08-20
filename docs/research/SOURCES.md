@@ -36,8 +36,8 @@ Every document fetched and read for this knowledge base, with what the platform 
 
 ### [MAY-FOM] May, E. C., fuzzy-set figure of merit for free-response anomalous cognition
 
-- Primary papers: May, Utts, Humphrey, and colleagues on fuzzy-set analysis of free-response AC (SRI/SAIC technical reports in the Star Gate collection). Summary treatment appears throughout the SAIC era work Utts assessed [UTTS-1995].
-- Taken from it: Accuracy is the fraction of the response that describes the target. Reliability is the fraction of the target described by the response. Figure of merit is the product. The platform stores that composite on every judgment. Without a fuzzy-set encoding of imagery, accuracy is the graded rank `(N - rank + 1) / N` and reliability is the process-variable ratio of signal events to signal-plus-declared-AOL. The product stays on the same 0 to 1 scale May used.
+- Primary papers: May, Humphrey, and colleagues, "Advances in Remote Viewing Analysis" (fuzzy-set encoding of target and response). May and Thomson, "Remote Viewing Evaluation Techniques," CIA-RDP96-00789R003800450001-1. Summary treatment appears throughout the SAIC era work Utts assessed [UTTS-1995].
+- Taken from it: A target T and a response R are encoded as memberships over the same descriptor questions. Accuracy is the fraction of the target the response describes, `|T ∩ R| / |T|`. Reliability is the fraction of the response that is correct, `|T ∩ R| / |R|`. Figure of merit is the product. A verbose wrong response lowers reliability. A thin right response lowers accuracy. The platform stores both encodings and the official product on every judgment. When either encoding is empty, a rank-process analogue stays on the same 0 to 1 scale so older sessions still have a composite. That analogue is not May's method.
 
 ### [UTTS-1995] Utts, J., "An Assessment of the Evidence for Psychic Functioning" (1995, for the AIR review)
 
