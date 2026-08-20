@@ -24,7 +24,11 @@ class TestPoolVault:
         assert "Secret Site Alpha" not in text
         assert "payloadB64" not in text
         receipts = detail.json()["receipts"]
-        assert any(row["payloadSha256"] == body["payloadSha256"] for row in receipts)
+        match = next(
+            row for row in receipts if row["payloadSha256"] == body["payloadSha256"]
+        )
+        assert match["encoded"] is False
+        assert "descriptors" not in match
 
     def test_coordinate_site_needs_coordinates(self, client):
         pool = client.get("/api/pools").json()["pools"][0]

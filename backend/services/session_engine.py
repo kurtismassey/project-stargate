@@ -113,6 +113,7 @@ async def seed_default_pool(db: AsyncSession) -> None:
     await db.flush()
 
     from agents.target.tool import compress_image
+    from services.descriptors import bundled_encoding_for_filename
 
     now = utcnow()
     seeded_targets: list[SealedTarget] = []
@@ -125,6 +126,7 @@ async def seed_default_pool(db: AsyncSession) -> None:
             title=f"Reference Target {index:02d}",
             feedback_notes=f"Bundled reference image {path.name}",
             source="bundled",
+            descriptors=bundled_encoding_for_filename(path.name),
             sealed_at=now,
         )
         db.add(target)
@@ -714,6 +716,8 @@ async def get_feedback(db: AsyncSession, session_id: UUID) -> dict:
             "payloadSha256": target.payload_sha256,
             "coordinates": target.coordinates,
             "feedbackNotes": target.feedback_notes,
+            "descriptors": target.descriptors or {},
+            "encoded": bool(target.descriptors),
         },
         "feedbackAt": session.feedback_at.isoformat(),
         "feedbackLatencyMs": session.feedback_latency_ms,
@@ -811,14 +815,21 @@ async def record_judgment(
     judge_kind: JudgeKind = JudgeKind.HUMAN,
     judge_name: str = "",
     notes: str = "",
+    response_descriptors: dict | None = None,
 ) -> Judgment:
     """Persist a rank-order judgment. rankings is a list of
-    {"targetId": ..., "rank": ...} covering the presented pool."""
+    {"targetId": ..., "rank": ...} covering the presented pool.
+
+    When the sealed target and the submitted response both have
+    descriptor mass, official FoM is the May fuzzy-set product.
+    """
     session = await _load_session(db, session_id)
     if session.status == RVSessionStatus.ACTIVE:
         raise EngineError("not_locked", "Judging opens after the session locks.", 403)
     tasking = await db.get(Tasking, session.tasking_id)
     assert tasking is not None
+    target = await db.get(SealedTarget, tasking.target_id)
+    assert target is not None
 
     ranks = {UUID(r["targetId"]): int(r["rank"]) for r in rankings}
     if tasking.target_id not in ranks:
@@ -832,11 +843,14 @@ async def record_judgment(
         )
 
     events = await _load_events(db, session_id)
-    accuracy = scoring.graded_accuracy(ranks[tasking.target_id], len(ranks))
-    reliability = scoring.transcript_reliability(
-        [event.kind for event in events], session.aol_count
+    scores = scoring.official_scores(
+        ranks[tasking.target_id],
+        len(ranks),
+        [event.kind for event in events],
+        session.aol_count,
+        target.descriptors,
+        response_descriptors,
     )
-    fom = scoring.figure_of_merit(accuracy, reliability)
 
     judgment = Judgment(
         session_id=session.id,
@@ -846,9 +860,11 @@ async def record_judgment(
         rankings=[{"targetId": str(t), "rank": r} for t, r in ranks.items()],
         rank_of_true_target=ranks[tasking.target_id],
         pool_size=len(ranks),
-        accuracy=accuracy,
-        reliability=reliability,
-        figure_of_merit=fom,
+        accuracy=scores.accuracy,
+        reliability=scores.reliability,
+        figure_of_merit=scores.figure_of_merit,
+        fom_method=scores.method,
+        response_descriptors=response_descriptors or {},
         notes=notes,
     )
     db.add(judgment)
@@ -863,6 +879,7 @@ async def record_judgment(
                 "rank_of_true_target": judgment.rank_of_true_target,
                 "pool_size": judgment.pool_size,
                 "figure_of_merit": judgment.figure_of_merit,
+                "fom_method": judgment.fom_method,
             },
         )
     )
@@ -922,6 +939,28 @@ async def record_displacement(
     await db.commit()
     await db.refresh(score)
     return score
+
+
+async def suggest_response_encoding(db: AsyncSession, session_id: UUID) -> dict:
+    """Propose a response encoding from the locked transcript.
+
+    The judge edits this. Target memberships stay off this payload.
+    """
+    session = await _load_session(db, session_id)
+    if session.status == RVSessionStatus.ACTIVE:
+        raise EngineError(
+            "not_locked", "Descriptor suggestion opens after the session locks.", 403
+        )
+    from services.descriptors import suggest_from_texts
+
+    events = await _load_events(db, session_id)
+    texts: list[str] = []
+    for event in events:
+        payload = event.payload or {}
+        text = payload.get("text")
+        if isinstance(text, str) and text.strip():
+            texts.append(text)
+    return suggest_from_texts(texts)
 
 
 def _ms_since(session: RVSession, now) -> int:

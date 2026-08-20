@@ -7,6 +7,7 @@ WebSocket (routes/websocket.py).
 
 import asyncio
 import json
+import secrets
 from uuid import UUID
 
 from core.config.logger import logger
@@ -34,7 +35,7 @@ from core.models.rv import (
     utcnow,
 )
 from services import export as research_export
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from services import session_engine
 from services.serializers import (
@@ -53,6 +54,22 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 router = APIRouter(prefix="/api")
 
 
+def require_lab(x_lab_key: str | None = Header(default=None, alias="X-Lab-Key")):
+    """Gate mutating ops when LAB_KEY is set. Chamber writes stay open."""
+    expected = settings.LAB_KEY
+    if not expected:
+        return
+    offered = x_lab_key or ""
+    if len(offered) != len(expected) or not secrets.compare_digest(offered, expected):
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "lab_key_required",
+                "message": "This desk requires a lab key.",
+            },
+        )
+
+
 def _raise(error: EngineError) -> None:
     raise HTTPException(
         status_code=error.status_code,
@@ -66,7 +83,19 @@ async def _broadcast(session_id: UUID, message: dict) -> None:
 
 @router.get("/health")
 async def health():
-    return {"status": "ok", "aiEnabled": settings.ai_enabled}
+    return {
+        "status": "ok",
+        "aiEnabled": settings.ai_enabled,
+        "labKeyRequired": bool(settings.LAB_KEY),
+    }
+
+
+@router.get("/descriptors")
+async def list_descriptors():
+    """Public vocabulary. Memberships of a sealed target are not here."""
+    from services.descriptors import vocabulary
+
+    return {"descriptors": vocabulary()}
 
 
 # ---------------------------------------------------------------- pools
@@ -83,6 +112,7 @@ class AddTargetRequest(BaseModel):
     coordinates: str | None = None
     feedback_notes: str = Field(default="", alias="feedbackNotes")
     kind: TargetKind = TargetKind.IMAGE
+    descriptors: dict = Field(default_factory=dict)
 
 
 @router.get("/pools")
@@ -102,7 +132,11 @@ async def list_pools(db: AsyncSession = Depends(get_session)):
 
 
 @router.post("/pools", status_code=201)
-async def create_pool(body: CreatePoolRequest, db: AsyncSession = Depends(get_session)):
+async def create_pool(
+    body: CreatePoolRequest,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
+):
     pool = TargetPool(name=body.name, description=body.description)
     db.add(pool)
     await db.commit()
@@ -112,7 +146,10 @@ async def create_pool(body: CreatePoolRequest, db: AsyncSession = Depends(get_se
 
 @router.post("/pools/{pool_id}/targets", status_code=201)
 async def add_target(
-    pool_id: UUID, body: AddTargetRequest, db: AsyncSession = Depends(get_session)
+    pool_id: UUID,
+    body: AddTargetRequest,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     pool = await db.get(TargetPool, pool_id)
     if pool is None:
@@ -134,6 +171,8 @@ async def add_target(
             raw = payload.encode("utf-8")
         payload = compress_image(raw, 800, 600, 85)
 
+    from services.descriptors import normalize
+
     target = SealedTarget(
         pool_id=pool.id,
         kind=body.kind,
@@ -142,6 +181,7 @@ async def add_target(
         title=body.title,
         coordinates=body.coordinates,
         feedback_notes=body.feedback_notes,
+        descriptors=normalize(body.descriptors),
         sealed_at=utcnow(),
     )
     db.add(target)
@@ -177,6 +217,7 @@ async def get_pool(pool_id: UUID, db: AsyncSession = Depends(get_session)):
                 "kind": target.kind.value,
                 "payloadSha256": target.payload_sha256,
                 "hasCoordinates": bool(target.coordinates),
+                "encoded": bool(target.descriptors),
                 "sealedAt": target.sealed_at.isoformat() if target.sealed_at else None,
             }
             for target in targets
@@ -224,7 +265,9 @@ async def list_series(db: AsyncSession = Depends(get_session)):
 
 @router.post("/series", status_code=201)
 async def create_series(
-    body: CreateSeriesRequest, db: AsyncSession = Depends(get_session)
+    body: CreateSeriesRequest,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     pool_id = body.pool_id
     if pool_id is None:
@@ -309,7 +352,11 @@ async def get_series(series_id: UUID, db: AsyncSession = Depends(get_session)):
 
 
 @router.get("/series/{series_id}/package")
-async def get_series_package(series_id: UUID, db: AsyncSession = Depends(get_session)):
+async def get_series_package(
+    series_id: UUID,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
+):
     try:
         return await research_export.series_package(db, series_id)
     except EngineError as error:
@@ -321,6 +368,7 @@ async def seal_series_trials(
     series_id: UUID,
     body: SealTrialsRequest,
     db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     try:
         await session_engine.seal_series_trials(
@@ -370,7 +418,9 @@ async def list_taskings(db: AsyncSession = Depends(get_session)):
 
 @router.post("/taskings", status_code=201)
 async def create_tasking(
-    body: CreateTaskingRequest, db: AsyncSession = Depends(get_session)
+    body: CreateTaskingRequest,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     try:
         tasking = await session_engine.create_tasking(
@@ -428,7 +478,9 @@ async def list_sessions(db: AsyncSession = Depends(get_session)):
 
 @router.post("/sessions", status_code=201)
 async def start_session(
-    body: StartSessionRequest, db: AsyncSession = Depends(get_session)
+    body: StartSessionRequest,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     try:
         session = await session_engine.start_session(
@@ -482,6 +534,7 @@ async def get_session_detail(session_id: UUID, db: AsyncSession = Depends(get_se
             "accuracy": judgment.accuracy,
             "reliability": judgment.reliability,
             "figureOfMerit": judgment.figure_of_merit,
+            "fomMethod": judgment.fom_method,
             "createdAt": judgment.created_at.isoformat(),
         }
         if judgment
@@ -544,7 +597,9 @@ async def get_feedback(session_id: UUID, db: AsyncSession = Depends(get_session)
 
 @router.get("/sessions/{session_id}/package")
 async def get_session_package(
-    session_id: UUID, db: AsyncSession = Depends(get_session)
+    session_id: UUID,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     try:
         return await research_export.session_package(db, session_id)
@@ -559,6 +614,9 @@ class JudgmentRequest(BaseModel):
     rankings: list[dict]
     judge_name: str = Field(default="", alias="judgeName")
     notes: str = ""
+    response_descriptors: dict = Field(
+        default_factory=dict, alias="responseDescriptors"
+    )
 
 
 class DisplacementRequest(BaseModel):
@@ -590,6 +648,7 @@ async def record_judgment(
     session_id: UUID,
     body: JudgmentRequest,
     db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     try:
         judgment = await session_engine.record_judgment(
@@ -599,6 +658,7 @@ async def record_judgment(
             judge_kind=JudgeKind.HUMAN,
             judge_name=body.judge_name,
             notes=body.notes,
+            response_descriptors=body.response_descriptors,
         )
     except EngineError as error:
         _raise(error)
@@ -609,7 +669,19 @@ async def record_judgment(
         "accuracy": judgment.accuracy,
         "reliability": judgment.reliability,
         "figureOfMerit": judgment.figure_of_merit,
+        "fomMethod": judgment.fom_method,
     }
+
+
+@router.get("/sessions/{session_id}/descriptor-suggestion")
+async def descriptor_suggestion(
+    session_id: UUID, db: AsyncSession = Depends(get_session)
+):
+    try:
+        proposed = await session_engine.suggest_response_encoding(db, session_id)
+    except EngineError as error:
+        _raise(error)
+    return {"descriptors": proposed}
 
 
 @router.post("/sessions/{session_id}/displacement", status_code=201)
@@ -617,6 +689,7 @@ async def record_displacement(
     session_id: UUID,
     body: DisplacementRequest,
     db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     try:
         score = await session_engine.record_displacement(
@@ -665,7 +738,11 @@ async def list_analysis(session_id: UUID, db: AsyncSession = Depends(get_session
 
 
 @router.post("/sessions/{session_id}/analysis", status_code=201)
-async def run_analysis(session_id: UUID, db: AsyncSession = Depends(get_session)):
+async def run_analysis(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
+):
     """Advisory LLM read of a locked session against the sealed target.
     Never the official score [UTTS-1995]."""
     if not settings.ai_enabled:
@@ -750,7 +827,9 @@ async def list_viewers(db: AsyncSession = Depends(get_session)):
 
 @router.post("/viewers", status_code=201)
 async def create_viewer(
-    body: CreateViewerRequest, db: AsyncSession = Depends(get_session)
+    body: CreateViewerRequest,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
 ):
     callsign = body.callsign.strip()
     if not callsign:

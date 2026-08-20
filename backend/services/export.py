@@ -84,6 +84,8 @@ async def session_package(db: AsyncSession, session_id: UUID) -> dict:
                 "accuracy": judgment.accuracy,
                 "reliability": judgment.reliability,
                 "figureOfMerit": judgment.figure_of_merit,
+                "fomMethod": judgment.fom_method,
+                "responseDescriptors": judgment.response_descriptors or {},
                 "judgeName": judgment.judge_name,
                 "createdAt": judgment.created_at.isoformat(),
             }
@@ -98,6 +100,7 @@ async def session_package(db: AsyncSession, session_id: UUID) -> dict:
             "payloadSha256": target.payload_sha256,
             "coordinates": target.coordinates,
             "feedbackNotes": target.feedback_notes,
+            "descriptors": target.descriptors or {},
         },
         "analystReports": [
             {

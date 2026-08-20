@@ -262,11 +262,57 @@ async def _migration_0004_viewers_and_fom(engine: AsyncEngine) -> None:
         await db.commit()
 
 
+async def _migration_0005_fuzzy_descriptors(engine: AsyncEngine) -> None:
+    """Descriptor encodings and official FoM method on existing databases."""
+    from core.models.rv import Judgment, SealedTarget
+    from services.descriptors import bundled_encoding_for_filename
+    from sqlmodel import select
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+        await _add_column(conn, "sealed_targets", "descriptors", "TEXT", "JSON")
+        await _add_column(conn, "judgments", "response_descriptors", "TEXT", "JSON")
+        await _add_column(
+            conn,
+            "judgments",
+            "fom_method",
+            "VARCHAR DEFAULT 'rank_process'",
+            "VARCHAR",
+        )
+
+    prefix = "Bundled reference image "
+    async with AsyncSession(engine, expire_on_commit=False) as db:
+        targets = list((await db.exec(select(SealedTarget))).all())
+        for target in targets:
+            if target.descriptors:
+                continue
+            notes = target.feedback_notes or ""
+            if not notes.startswith(prefix):
+                continue
+            encoding = bundled_encoding_for_filename(notes[len(prefix) :])
+            if not encoding:
+                continue
+            target.descriptors = encoding
+            db.add(target)
+
+        judgments = list((await db.exec(select(Judgment))).all())
+        for judgment in judgments:
+            if judgment.fom_method:
+                continue
+            judgment.fom_method = "rank_process"
+            if judgment.response_descriptors is None:
+                judgment.response_descriptors = {}
+            db.add(judgment)
+        await db.commit()
+
+
 MIGRATIONS = [
     (1, "create research schema", _migration_0001_create_schema),
     (2, "import legacy prototype sessions", _migration_0002_import_legacy_sessions),
     (3, "arv pairs and tasking associate binding", _migration_0003_arv_pairs),
     (4, "viewers and May figure of merit", _migration_0004_viewers_and_fom),
+    (5, "fuzzy-set descriptor encodings", _migration_0005_fuzzy_descriptors),
 ]
 
 

@@ -136,6 +136,11 @@ async def population_stats(db: AsyncSession) -> dict:
 
     active = [s for s in sessions if s.status == RVSessionStatus.ACTIVE]
     judging = _fom_block(judgments)
+    by_method: dict[str, int] = {}
+    for judgment in judgments:
+        method = judgment.fom_method or "rank_process"
+        by_method[method] = by_method.get(method, 0) + 1
+    judging["byMethod"] = by_method
 
     return {
         "sessions": {

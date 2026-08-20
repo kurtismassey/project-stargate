@@ -5,6 +5,7 @@ class TestHealth:
         body = response.json()
         assert body["status"] == "ok"
         assert body["aiEnabled"] is False
+        assert body["labKeyRequired"] is False
 
     def test_default_pool_seeded(self, client):
         pools = client.get("/api/pools").json()["pools"]

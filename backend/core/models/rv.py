@@ -127,6 +127,9 @@ class SealedTarget(SQLModel, table=True):
     feedback_notes: str = Field(default="")
 
     source: str = Field(default="operator")
+    # May/SAIC descriptor memberships. Target material. Never serialized
+    # toward a viewer before lock [MAY-FOM] [PAT-REPORT].
+    descriptors: dict = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
     sealed_at: datetime | None = Field(default=None)
 
@@ -261,6 +264,8 @@ class Judgment(SQLModel, table=True):
     accuracy: float = Field(default=0.0)
     reliability: float = Field(default=0.0)
     figure_of_merit: float = Field(default=0.0)
+    fom_method: str = Field(default="rank_process")
+    response_descriptors: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
     notes: str = Field(default="")
     created_at: datetime = Field(default_factory=utcnow, nullable=False)

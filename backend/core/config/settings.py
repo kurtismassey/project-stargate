@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     # Empty key means AI assistance is disabled and the session loop runs
     # without it. AI paths fail closed, never crash the protocol engine.
     GOOGLE_API_KEY: str = ""
+    # Empty key leaves the lab open (dev and tests). Set a shared lab
+    # key to gate mutating ops so a research group can close the desk.
+    LAB_KEY: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
