@@ -91,11 +91,15 @@ The AI monitor in this platform implements exactly this envelope and nothing mor
 
 Extended Remote Viewing, the Fort Meade unit's other primary method [CIA-BRIEF]. The viewer works in a darkened, quiet room in a deeply relaxed, borderline-sleep state, verbalizing impressions while a monitor takes notes and asks minimal questions. Sessions are long (45 minutes and up), data arrives as imagery and narrative rather than staged structure. The platform models ERV as a protocol variant with a free-form transcript, monitor notes, the same blindness and lock rules, and no stage gating.
 
-## WRV and ARV
+## WRV
 
-Written Remote Viewing appears in the DIA briefing as a sanctioned method (automatic-writing style) [CIA-BRIEF]. It is out of scope for this slice but the protocol enum reserves it.
+Written Remote Viewing appears in the DIA briefing as a sanctioned method, automatic-writing and phonetic [CIA-BRIEF]. The platform runs it as a free-form protocol with the same blindness, lock, and transcript rules as ERV. The chamber puts writing first. The viewer objectifies fragments, words, and phrases on the page. Ideograms and CRV stage structure are refused.
 
-Associative Remote Viewing tasks the viewer on a future feedback photo associated with an outcome (such as one photo for each side of a binary event). The platform's target model supports ARV as a target kind with an outcome mapping, though the first vertical slice ships CRV picture and coordinate targets.
+## ARV
+
+Associative Remote Viewing tasks the viewer on a future feedback photograph bound to an outcome [CIA-BRIEF]. The engine seals two associates (side A and side B) and randomly assigns which side is the true future-feedback photo. The viewer receives only the opaque cue and describes the photograph they will see at feedback.
+
+After lock, judging is binary rank-order of the two associates. The cards do not mark the true side. Rank 1 of the true associate is a hit. Chance under the null is 1/2. Outcome labels stay server-side so a live judge cannot read the mapping off the wire.
 
 ## Judging
 

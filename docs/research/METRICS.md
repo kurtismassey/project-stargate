@@ -18,7 +18,7 @@ A field earns its place by supporting one of four uses. Protocol enforcement dur
 | Field | Why |
 |---|---|
 | `id`, `pool_id` | Membership drives decoy selection at judging time |
-| `kind` | `image`, `coordinate_site`, or `arv_outcome`. Protocol variants target different things [CIA-BRIEF], ARV reserved [PROTOCOLS.md] |
+| `kind` | `image`, `coordinate_site`, or `arv_outcome`. Picture-pool ARV reuses `image` associates bound by `arv_pairs` [CIA-BRIEF] |
 | `payload_b64`, `payload_sha256` | The sealed content and its hash. The hash proves at feedback time that the revealed target is the one sealed at tasking, which is the software form of the sealed-envelope practice [PAT-REPORT] |
 | `coordinates` | Optional geographic coordinates for coordinate-cued targets [PUTHOFF-CIA] |
 | `title`, `feedback_notes` | Shown only at feedback |
@@ -36,6 +36,15 @@ Blindness invariant. `payload_b64`, `title`, `feedback_notes`, and `coordinates`
 | `feedback_policy` | `immediate` or `deferred`. Immediate feedback is Tart's training variable [TART-TTI] |
 | `created_at` | Audit trail |
 
+## arv_pairs
+
+| Field | Why |
+|---|---|
+| `id`, `pool_id` | Two sealed associates drawn from one pool |
+| `side_a_id`, `side_b_id` | The two photographs. One is sealed as the true future-feedback target on the tasking |
+| `label_a`, `label_b` | Outcome labels (A/B or event names). Never serialized before lock, and not shown on judging cards |
+| `created_at` | Audit trail |
+
 ## taskings
 
 | Field | Why |
@@ -46,6 +55,7 @@ Blindness invariant. `payload_b64`, `title`, `feedback_notes`, and `coordinates`
 | `protocol` | `crv`, `erv`, `arv`, `wrv`. Determines the session engine's gating rules [CRV-MANUAL] [CIA-BRIEF] |
 | `environment` | `solo`, `monitored_ai`, `monitored_human`. Evidentiary value differs by environment [CRV-MANUAL] |
 | `series_id`, `series_position` | Position in a sequential series, required for lag arithmetic [TART-TTI] |
+| `arv_pair_id` | When set, judging uses the two associates instead of a five-member decoy pool |
 | `created_at`, `sealed_at` | Tasking lifecycle audit |
 
 ## rv_sessions
@@ -54,7 +64,7 @@ Blindness invariant. `payload_b64`, `title`, `feedback_notes`, and `coordinates`
 |---|---|
 | `id`, `tasking_id` | One session executes one tasking |
 | `status` | `active`, `locked`, `judged`, `archived`. Lock is the irreversible gate between viewing and feedback [PROTOCOLS.md] |
-| `current_stage` | 1 to 6 for CRV, null for ERV. The state machine's cursor [CRV-MANUAL] |
+| `current_stage` | 1 to 6 for CRV, null for ERV, ARV, and WRV. The state machine's cursor [CRV-MANUAL] |
 | `viewer_name` | Population statistics group by viewer [UTTS-1995] |
 | `monitor_mode`, `monitor_blind` | Whether a monitor participated and whether it was blind, since training and operational modes differ [CRV-MANUAL] |
 | `started_at`, `locked_at`, `feedback_at` | Session timeline. `feedback_at - locked_at` is feedback latency [TART-TTI] |
