@@ -272,3 +272,22 @@ _ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI"}
 
 def _roman(stage: int) -> str:
     return _ROMAN.get(stage, str(stage))
+
+
+LEADING_MARKERS = (
+    "looks like",
+    "is it a",
+    "could it be",
+    "maybe it's",
+    "maybe it is",
+    "i think it",
+    "the target",
+    "what do you think it is",
+    "what is it",
+)
+
+
+def is_leading_patter(text: str) -> bool:
+    """Last-line filter. Names or fishes for content [CRV-MANUAL]."""
+    lowered = text.lower()
+    return any(marker in lowered for marker in LEADING_MARKERS)

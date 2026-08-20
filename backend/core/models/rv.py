@@ -194,6 +194,18 @@ class Viewer(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
 
 
+class Operator(SQLModel, table=True):
+    """Named lab staff. An operator cuts taskings and judges. A monitor
+    sits blind with the viewer [CRV-MANUAL]."""
+
+    __tablename__ = "operators"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    callsign: str = Field(index=True, unique=True)
+    notes: str = Field(default="")
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
 class RVSession(SQLModel, table=True):
     __tablename__ = "rv_sessions"
 
@@ -206,6 +218,14 @@ class RVSession(SQLModel, table=True):
 
     viewer_id: UUID | None = Field(default=None, foreign_key="viewers.id", index=True)
     viewer_name: str = Field(default="Viewer 001")
+    operator_id: UUID | None = Field(
+        default=None, foreign_key="operators.id", index=True
+    )
+    operator_name: str = Field(default="")
+    monitor_id: UUID | None = Field(
+        default=None, foreign_key="operators.id", index=True
+    )
+    monitor_name: str = Field(default="")
     monitor_mode: SessionEnvironment = Field(default=SessionEnvironment.MONITORED_AI)
     monitor_blind: bool = Field(default=True)
 

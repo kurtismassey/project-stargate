@@ -4,6 +4,7 @@ from core.models.rv import EventKind, Protocol
 from services.protocol import (
     EventView,
     can_advance_stage,
+    is_leading_patter,
     open_aol,
     stage_one_complete,
     validate_event,
@@ -176,3 +177,9 @@ class TestARVAndWRV:
         refusal = validate_event(Protocol.ARV, None, EventKind.SENSORY, events)
         assert refusal is not None
         assert refusal.code == "aol_open"
+
+
+class TestLeadingPatter:
+    def test_names_and_fishing_are_leading(self):
+        assert is_leading_patter("Is it a mountain?")
+        assert not is_leading_patter("Take the cue.")

@@ -98,7 +98,9 @@ async def run_monitor(session_id: UUID) -> None:
         return
 
     text = decision.text.strip()
-    if _is_leading(text):
+    from services.protocol import is_leading_patter
+
+    if is_leading_patter(text):
         logger.info(f"Suppressed leading monitor prompt: {text}")
         return
 
@@ -110,23 +112,3 @@ async def run_monitor(session_id: UUID) -> None:
         json.dumps({"type": "event", "event": serialize_event(event)}),
         str(session_id),
     )
-
-
-LEADING_MARKERS = (
-    "looks like",
-    "is it a",
-    "could it be",
-    "maybe it's",
-    "maybe it is",
-    "i think it",
-    "the target",
-    "what do you think it is",
-    "what is it",
-)
-
-
-def _is_leading(text: str) -> bool:
-    """Last-line patter filter. Anything that names or fishes for content
-    is discarded before it reaches the viewer."""
-    lowered = text.lower()
-    return any(marker in lowered for marker in LEADING_MARKERS)

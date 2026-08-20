@@ -20,6 +20,7 @@ from core.models.rv import (
     EventKind,
     JudgeKind,
     Judgment,
+    Operator,
     Protocol,
     RVSession,
     RVSessionStatus,
@@ -343,11 +344,28 @@ async def get_or_create_viewer(db: AsyncSession, callsign: str) -> Viewer:
     return viewer
 
 
+async def get_or_create_operator(db: AsyncSession, callsign: str) -> Operator:
+    name = callsign.strip()
+    if not name:
+        raise EngineError("bad_callsign", "Operator callsign is required", 422)
+    existing = (
+        await db.exec(select(Operator).where(Operator.callsign == name))
+    ).first()
+    if existing is not None:
+        return existing
+    operator = Operator(callsign=name)
+    db.add(operator)
+    await db.flush()
+    return operator
+
+
 async def start_session(
     db: AsyncSession,
     tasking_id: UUID,
     viewer_name: str = "Viewer 001",
     viewer_id: UUID | None = None,
+    operator_id: UUID | None = None,
+    monitor_id: UUID | None = None,
 ) -> RVSession:
     tasking = await db.get(Tasking, tasking_id)
     if tasking is None:
@@ -370,12 +388,33 @@ async def start_session(
     else:
         viewer = await get_or_create_viewer(db, viewer_name)
 
+    operator: Operator | None = None
+    if operator_id is not None:
+        operator = await db.get(Operator, operator_id)
+        if operator is None:
+            raise EngineError("operator_not_found", "Operator not found", 404)
+
+    human_monitor: Operator | None = None
+    if monitor_id is not None:
+        human_monitor = await db.get(Operator, monitor_id)
+        if human_monitor is None:
+            raise EngineError("monitor_not_found", "Monitor not found", 404)
+
     is_crv = tasking.protocol == Protocol.CRV
+    monitor_mode = (
+        SessionEnvironment.MONITORED_HUMAN
+        if human_monitor is not None
+        else tasking.environment
+    )
     session = RVSession(
         tasking_id=tasking.id,
         viewer_id=viewer.id,
         viewer_name=viewer.callsign,
-        monitor_mode=tasking.environment,
+        operator_id=operator.id if operator else None,
+        operator_name=operator.callsign if operator else "",
+        monitor_id=human_monitor.id if human_monitor else None,
+        monitor_name=human_monitor.callsign if human_monitor else "",
+        monitor_mode=monitor_mode,
         monitor_blind=True,
     )
     # Assigned after construction so SQLAlchemy instrumentation records the
@@ -397,7 +436,7 @@ async def start_session(
         )
     )
     monitor_seq = 2
-    if tasking.environment != SessionEnvironment.SOLO:
+    if session.monitor_mode != SessionEnvironment.SOLO:
         opening = OPENING_PATTER[tasking.protocol]
         db.add(
             TranscriptEvent(
@@ -414,10 +453,14 @@ async def start_session(
         db.add(StageRecord(session_id=session.id, stage=1, entered_at=now))
     db.add(
         AuditLog(
+            actor=session.operator_name or "operator",
             action="session_started",
             entity_type="rv_session",
             entity_id=str(session.id),
-            detail={"tasking_number": tasking.tasking_number},
+            detail={
+                "tasking_number": tasking.tasking_number,
+                "monitor": session.monitor_name or None,
+            },
         )
     )
     await db.commit()

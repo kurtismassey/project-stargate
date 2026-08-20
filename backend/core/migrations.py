@@ -307,12 +307,27 @@ async def _migration_0005_fuzzy_descriptors(engine: AsyncEngine) -> None:
         await db.commit()
 
 
+async def _migration_0006_operators(engine: AsyncEngine) -> None:
+    """Named operators and human-monitor columns on sessions."""
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+        await _add_column(conn, "rv_sessions", "operator_id", "VARCHAR", "UUID")
+        await _add_column(
+            conn, "rv_sessions", "operator_name", "VARCHAR DEFAULT ''", "VARCHAR"
+        )
+        await _add_column(conn, "rv_sessions", "monitor_id", "VARCHAR", "UUID")
+        await _add_column(
+            conn, "rv_sessions", "monitor_name", "VARCHAR DEFAULT ''", "VARCHAR"
+        )
+
+
 MIGRATIONS = [
     (1, "create research schema", _migration_0001_create_schema),
     (2, "import legacy prototype sessions", _migration_0002_import_legacy_sessions),
     (3, "arv pairs and tasking associate binding", _migration_0003_arv_pairs),
     (4, "viewers and May figure of merit", _migration_0004_viewers_and_fom),
     (5, "fuzzy-set descriptor encodings", _migration_0005_fuzzy_descriptors),
+    (6, "operators and human-monitor pairing", _migration_0006_operators),
 ]
 
 

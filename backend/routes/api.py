@@ -22,6 +22,7 @@ from core.models.rv import (
     FeedbackPolicy,
     JudgeKind,
     Judgment,
+    Operator,
     Protocol,
     RVSession,
     SealedTarget,
@@ -448,9 +449,20 @@ class StartSessionRequest(BaseModel):
     tasking_id: UUID = Field(alias="taskingId")
     viewer_name: str = Field(default="Viewer 001", alias="viewerName")
     viewer_id: UUID | None = Field(default=None, alias="viewerId")
+    operator_id: UUID | None = Field(default=None, alias="operatorId")
+    monitor_id: UUID | None = Field(default=None, alias="monitorId")
+
+
+class MonitorPromptRequest(BaseModel):
+    text: str
 
 
 class CreateViewerRequest(BaseModel):
+    callsign: str
+    notes: str = ""
+
+
+class CreateOperatorRequest(BaseModel):
     callsign: str
     notes: str = ""
 
@@ -488,6 +500,8 @@ async def start_session(
             body.tasking_id,
             viewer_name=body.viewer_name,
             viewer_id=body.viewer_id,
+            operator_id=body.operator_id,
+            monitor_id=body.monitor_id,
         )
     except EngineError as error:
         _raise(error)
@@ -879,6 +893,93 @@ async def get_viewer(viewer_id: UUID, db: AsyncSession = Depends(get_session)):
         "stats": block,
         "sessions": [await _session_bundle(db, session) for session in sessions],
     }
+
+
+@router.get("/operators")
+async def list_operators(db: AsyncSession = Depends(get_session)):
+    listed = list(
+        (await db.exec(select(Operator).order_by(col(Operator.created_at)))).all()
+    )
+    sessions = list((await db.exec(select(RVSession))).all())
+    as_operator: dict[str, int] = {}
+    as_monitor: dict[str, int] = {}
+    for session in sessions:
+        if session.operator_id:
+            key = str(session.operator_id)
+            as_operator[key] = as_operator.get(key, 0) + 1
+        if session.monitor_id:
+            key = str(session.monitor_id)
+            as_monitor[key] = as_monitor.get(key, 0) + 1
+    return {
+        "operators": [
+            {
+                "id": str(row.id),
+                "callsign": row.callsign,
+                "notes": row.notes,
+                "createdAt": row.created_at.isoformat(),
+                "sessionsOperated": as_operator.get(str(row.id), 0),
+                "sessionsMonitored": as_monitor.get(str(row.id), 0),
+            }
+            for row in listed
+        ]
+    }
+
+
+@router.post("/operators", status_code=201)
+async def create_operator(
+    body: CreateOperatorRequest,
+    db: AsyncSession = Depends(get_session),
+    _: None = Depends(require_lab),
+):
+    try:
+        operator = await session_engine.get_or_create_operator(db, body.callsign)
+    except EngineError as error:
+        _raise(error)
+    if body.notes and not operator.notes:
+        operator.notes = body.notes
+        db.add(operator)
+    await db.commit()
+    await db.refresh(operator)
+    return {
+        "id": str(operator.id),
+        "callsign": operator.callsign,
+        "notes": operator.notes,
+        "createdAt": operator.created_at.isoformat(),
+        "sessionsOperated": 0,
+        "sessionsMonitored": 0,
+    }
+
+
+@router.post("/sessions/{session_id}/monitor-prompts", status_code=201)
+async def post_monitor_prompt(
+    session_id: UUID,
+    body: MonitorPromptRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    """Human-monitor patter. Stays open like chamber writes. Leading
+    language is refused so the viewer never hears it [CRV-MANUAL]."""
+    from services.protocol import is_leading_patter
+
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(422, "Patter is empty")
+    if is_leading_patter(text):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "leading_patter",
+                "message": "That names or fishes for content. Stay in structure.",
+            },
+        )
+    try:
+        event = await session_engine.append_monitor_prompt(
+            db, session_id, text, source="human"
+        )
+    except EngineError as error:
+        _raise(error)
+    serialized = serialize_event(event)
+    await _broadcast(session_id, {"type": "event", "event": serialized})
+    return {"event": serialized}
 
 
 # ------------------------------------------------------- AI monitor hook
