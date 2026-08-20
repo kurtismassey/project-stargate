@@ -669,6 +669,9 @@ export default function ChamberPage() {
                     ? {
                         rankOfTrueTarget: session.judgment.rankOfTrueTarget,
                         poolSize: session.judgment.poolSize,
+                        figureOfMerit: session.judgment.figureOfMerit,
+                        accuracy: session.judgment.accuracy,
+                        reliability: session.judgment.reliability,
                       }
                     : null
                 }

@@ -8,7 +8,13 @@ interface JudgingBoardProps {
   inSeries: boolean;
   judged: boolean;
   onJudged: () => void;
-  initialResult?: { rankOfTrueTarget: number; poolSize: number } | null;
+  initialResult?: {
+    rankOfTrueTarget: number;
+    poolSize: number;
+    figureOfMerit?: number;
+    accuracy?: number;
+    reliability?: number;
+  } | null;
 }
 
 /**
@@ -27,6 +33,9 @@ export function JudgingBoard({
   const [result, setResult] = useState<{
     rankOfTrueTarget: number;
     poolSize: number;
+    figureOfMerit?: number;
+    accuracy?: number;
+    reliability?: number;
   } | null>(initialResult);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -143,6 +152,14 @@ export function JudgingBoard({
           <p className="text-[11px] text-text-faint mt-1">
             First place by chance: 1 in {result.poolSize}
           </p>
+          {result.figureOfMerit != null ? (
+            <p className="mono text-[12px] text-text mt-2">
+              FoM {result.figureOfMerit.toFixed(2)}
+              {result.accuracy != null && result.reliability != null
+                ? `  (${result.accuracy.toFixed(2)} × ${result.reliability.toFixed(2)})`
+                : ""}
+            </p>
+          ) : null}
         </div>
       ) : (
         <>

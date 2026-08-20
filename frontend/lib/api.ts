@@ -22,6 +22,7 @@ export interface SessionSummary {
   id: string;
   status: "active" | "locked" | "judged" | "archived";
   currentStage: number | null;
+  viewerId: string | null;
   viewerName: string;
   monitorMode: "solo" | "monitored_ai" | "monitored_human";
   monitorBlind: boolean;
@@ -60,6 +61,9 @@ export interface JudgmentData {
   rankOfTrueTarget: number;
   poolSize: number;
   judgeName: string;
+  accuracy?: number;
+  reliability?: number;
+  figureOfMerit?: number;
   createdAt: string;
 }
 
@@ -103,8 +107,47 @@ export interface AnalystReportData {
   createdAt: string;
 }
 
+export interface ViewerStats {
+  id: string | null;
+  callsign: string;
+  sessions: number;
+  judgedSessions: number;
+  firstPlaceMatches: number;
+  expectedFirstPlace?: number;
+  meanRankOfTrueTarget: number | null;
+  meanAccuracy?: number | null;
+  meanReliability?: number | null;
+  meanFigureOfMerit: number | null;
+}
+
+export interface ViewerData {
+  id: string;
+  callsign: string;
+  notes: string;
+  createdAt: string;
+  sessions: number;
+  judgedSessions: number;
+  firstPlaceMatches: number;
+  meanFigureOfMerit: number | null;
+  meanRankOfTrueTarget: number | null;
+}
+
 export interface StatsData {
-  sessions: { total: number; active: number; byStatus: Record<string, number> };
+  sessions: {
+    total: number;
+    active: number;
+    byStatus: Record<string, number>;
+    byProtocol?: Record<
+      string,
+      {
+        sessions: number;
+        judged: number;
+        firstPlace: number;
+        meanFigureOfMerit: number;
+      }
+    >;
+    byEnvironment?: Record<string, number>;
+  };
   protocolHealth: {
     aolTotal: number;
     breakTotal: number;
@@ -115,7 +158,11 @@ export interface StatsData {
     firstPlaceMatches: number;
     expectedFirstPlace: number;
     meanRankOfTrueTarget: number | null;
+    meanAccuracy?: number | null;
+    meanReliability?: number | null;
+    meanFigureOfMerit?: number | null;
   };
+  viewers?: ViewerStats[];
   feedback: { meanLatencyMs: number | null; sessionsWithFeedback: number };
   displacement: Record<
     string,
@@ -198,11 +245,31 @@ export const api = {
 
   listSessions: () => request<{ sessions: SessionSummary[] }>("/api/sessions"),
 
-  startSession: (taskingId: string, viewerName?: string) =>
+  startSession: (
+    taskingId: string,
+    options?: { viewerName?: string; viewerId?: string },
+  ) =>
     request<SessionSummary>("/api/sessions", {
       method: "POST",
-      body: JSON.stringify({ taskingId, viewerName }),
+      body: JSON.stringify({
+        taskingId,
+        viewerName: options?.viewerName,
+        viewerId: options?.viewerId,
+      }),
     }),
+
+  listViewers: () => request<{ viewers: ViewerData[] }>("/api/viewers"),
+
+  createViewer: (callsign: string) =>
+    request<ViewerData>("/api/viewers", {
+      method: "POST",
+      body: JSON.stringify({ callsign }),
+    }),
+
+  getViewer: (viewerId: string) =>
+    request<
+      ViewerData & { stats: ViewerStats; sessions: SessionSummary[] }
+    >(`/api/viewers/${viewerId}`),
 
   getSession: (sessionId: string) =>
     request<SessionDetail>(`/api/sessions/${sessionId}`),
@@ -241,7 +308,14 @@ export const api = {
     rankings: { targetId: string; rank: number }[],
     judgeName?: string,
   ) =>
-    request<{ id: string; rankOfTrueTarget: number; poolSize: number }>(
+    request<{
+      id: string;
+      rankOfTrueTarget: number;
+      poolSize: number;
+      accuracy: number;
+      reliability: number;
+      figureOfMerit: number;
+    }>(
       `/api/sessions/${sessionId}/judgments`,
       {
         method: "POST",

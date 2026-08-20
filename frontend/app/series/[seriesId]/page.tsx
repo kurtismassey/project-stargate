@@ -67,7 +67,7 @@ export default function SeriesRunnerPage() {
     }
     setBusy(true);
     try {
-      const session = await api.startSession(tasking.id);
+      const session = await api.startSession(tasking.id, {});
       router.push(`/session/${session.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start session");
