@@ -219,3 +219,30 @@ export const KIND_LABELS: Partial<Record<EventKind, string>> = {
   lock: "Lock",
   feedback_view: "Feedback",
 };
+
+export const LEADING_MARKERS = [
+  "looks like",
+  "is it a",
+  "could it be",
+  "maybe it's",
+  "maybe it is",
+  "i think it",
+  "the target",
+  "what do you think it is",
+  "what is it",
+] as const;
+
+export function isLeadingPatter(text: string): boolean {
+  const lowered = text.toLowerCase();
+  return LEADING_MARKERS.some((marker) => lowered.includes(marker));
+}
+
+export const HUMAN_PATTER = [
+  "Take the cue.",
+  "Objectify.",
+  "Stay low level. Single words.",
+  "AOL break. Declare it, set it aside.",
+  "Sketch what presents itself.",
+  "I will keep the record.",
+  "Back to the signal line when ready.",
+] as const;

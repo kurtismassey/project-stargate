@@ -10,6 +10,7 @@ import {
   StatsData,
   TaskingSummary,
   ViewerData,
+  OperatorData,
   PoolData,
 } from "@/lib/api";
 import { LabGate } from "@/components/LabGate";
@@ -24,6 +25,7 @@ const PROTOCOL_OPTIONS: { value: Protocol; label: string }[] = [
 
 const ENVIRONMENT_OPTIONS = [
   { value: "monitored_ai", label: "AI monitor" },
+  { value: "monitored_human", label: "Human monitor" },
   { value: "solo", label: "Solo" },
 ];
 
@@ -76,6 +78,9 @@ export default function OpsConsole() {
   const [trialCount, setTrialCount] = useState(8);
   const [viewers, setViewers] = useState<ViewerData[]>([]);
   const [selectedViewer, setSelectedViewer] = useState("");
+  const [operators, setOperators] = useState<OperatorData[]>([]);
+  const [selectedOperator, setSelectedOperator] = useState("");
+  const [selectedMonitor, setSelectedMonitor] = useState("");
   const [pools, setPools] = useState<PoolData[]>([]);
   const [selectedPool, setSelectedPool] = useState("");
   const [busy, setBusy] = useState(false);
@@ -91,6 +96,7 @@ export default function OpsConsole() {
         seriesData,
         healthData,
         viewerData,
+        operatorData,
         poolData,
       ] = await Promise.all([
           api.stats(),
@@ -99,6 +105,7 @@ export default function OpsConsole() {
           api.listSeries(),
           api.health(),
           api.listViewers(),
+          api.listOperators(),
           api.listPools(),
         ]);
       setStats(statsData);
@@ -109,6 +116,9 @@ export default function OpsConsole() {
       setLabLocked(healthData.labKeyRequired && !getLabKey());
       setViewers(viewerData.viewers);
       setSelectedViewer((current) => current || viewerData.viewers[0]?.id || "");
+      setOperators(operatorData.operators);
+      setSelectedOperator((current) => current || operatorData.operators[0]?.id || "");
+      setSelectedMonitor((current) => current || operatorData.operators[0]?.id || "");
       setPools(poolData.pools);
       setSelectedPool((current) => current || poolData.pools[0]?.id || "");
       setError("");
@@ -171,6 +181,21 @@ export default function OpsConsole() {
     }
   };
 
+  const newOperator = async () => {
+    const callsign = `Op ${String(operators.length + 1).padStart(3, "0")}`;
+    setBusy(true);
+    try {
+      const created = await api.createOperator(callsign);
+      setSelectedOperator(created.id);
+      if (!selectedMonitor) setSelectedMonitor(created.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add operator");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const newViewer = async () => {
     const callsign = `Viewer ${String(viewers.length + 1).padStart(3, "0")}`;
     setBusy(true);
@@ -194,6 +219,11 @@ export default function OpsConsole() {
     try {
       const session = await api.startSession(tasking.id, {
         viewerId: selectedViewer || undefined,
+        operatorId: selectedOperator || undefined,
+        monitorId:
+          environment === "monitored_human"
+            ? selectedMonitor || undefined
+            : undefined,
       });
       router.push(`/session/${session.id}`);
     } catch (err) {
@@ -395,6 +425,35 @@ export default function OpsConsole() {
                 <button className="btn" onClick={newViewer} disabled={busy}>
                   + Viewer
                 </button>
+                <select
+                  className="select"
+                  value={selectedOperator}
+                  onChange={(e) => setSelectedOperator(e.target.value)}
+                >
+                  <option value="">Operator</option>
+                  {operators.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.callsign}
+                    </option>
+                  ))}
+                </select>
+                <button className="btn" onClick={newOperator} disabled={busy}>
+                  + Operator
+                </button>
+                {environment === "monitored_human" ? (
+                  <select
+                    className="select"
+                    value={selectedMonitor}
+                    onChange={(e) => setSelectedMonitor(e.target.value)}
+                  >
+                    <option value="">Monitor</option>
+                    {operators.map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {row.callsign}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
               </div>
               <button
                 className="btn btn-signal w-full mt-4"
@@ -459,13 +518,15 @@ export default function OpsConsole() {
                             : ""}
                         </div>
                       </div>
-                      <button
-                        className="btn"
-                        onClick={() => enterChamber(tasking)}
-                        disabled={busy}
-                      >
-                        Enter chamber
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          className="btn"
+                          onClick={() => enterChamber(tasking)}
+                          disabled={busy}
+                        >
+                          Enter chamber
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -474,6 +535,25 @@ export default function OpsConsole() {
           </section>
 
           <section className="lg:col-span-3">
+            {operators.length > 0 ? (
+              <div className="panel p-5 mb-4">
+                <h2 className="label">Lab staff</h2>
+                <div className="mt-3 space-y-2">
+                  {operators.map((row) => (
+                    <div
+                      key={row.id}
+                      className="panel-inset px-4 py-3 flex items-center justify-between"
+                    >
+                      <span className="mono text-sm text-text">{row.callsign}</span>
+                      <span className="label">
+                        {row.sessionsOperated} ops / {row.sessionsMonitored}{" "}
+                        monitored
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {viewers.length > 0 ? (
               <div className="panel p-5 mb-4">
                 <h2 className="label">Roster</h2>
@@ -524,12 +604,14 @@ export default function OpsConsole() {
                   </p>
                 ) : (
                   recentSessions.map((session) => (
-                    <button
+                    <div
                       key={session.id}
-                      className="panel-inset px-4 py-3 w-full flex items-center justify-between text-left hover:border-line-strong transition-colors"
-                      onClick={() => router.push(`/session/${session.id}`)}
+                      className="panel-inset px-4 py-3 w-full flex items-center justify-between"
                     >
-                      <div className="flex items-center gap-4">
+                      <button
+                        className="flex items-center gap-4 text-left min-w-0"
+                        onClick={() => router.push(`/session/${session.id}`)}
+                      >
                         <span className="mono text-sm tracking-widest text-text">
                           {session.tasking.cue}
                         </span>
@@ -540,16 +622,27 @@ export default function OpsConsole() {
                             : ""}
                         </span>
                         <span className="label">{session.viewerName}</span>
-                      </div>
+                        {session.monitorName ? (
+                          <span className="label">mon {session.monitorName}</span>
+                        ) : null}
+                      </button>
                       <div className="flex items-center gap-3">
                         {session.aolCount > 0 ? (
                           <span className="mono text-[10px] text-warn">
                             AOL {session.aolCount}
                           </span>
                         ) : null}
+                        {session.status === "active" ? (
+                          <button
+                            className="btn"
+                            onClick={() => router.push(`/monitor/${session.id}`)}
+                          >
+                            Monitor desk
+                          </button>
+                        ) : null}
                         <StatusBadge status={session.status} />
                       </div>
-                    </button>
+                    </div>
                   ))
                 )}
               </div>

@@ -24,6 +24,10 @@ export interface SessionSummary {
   currentStage: number | null;
   viewerId: string | null;
   viewerName: string;
+  operatorId?: string | null;
+  operatorName?: string | null;
+  monitorId?: string | null;
+  monitorName?: string | null;
   monitorMode: "solo" | "monitored_ai" | "monitored_human";
   monitorBlind: boolean;
   startedAt: string;
@@ -121,6 +125,15 @@ export interface ViewerStats {
   meanAccuracy?: number | null;
   meanReliability?: number | null;
   meanFigureOfMerit: number | null;
+}
+
+export interface OperatorData {
+  id: string;
+  callsign: string;
+  notes: string;
+  createdAt: string;
+  sessionsOperated: number;
+  sessionsMonitored: number;
 }
 
 export interface ViewerData {
@@ -293,7 +306,12 @@ export const api = {
 
   startSession: (
     taskingId: string,
-    options?: { viewerName?: string; viewerId?: string },
+    options?: {
+      viewerName?: string;
+      viewerId?: string;
+      operatorId?: string;
+      monitorId?: string;
+    },
   ) =>
     request<SessionSummary>("/api/sessions", {
       method: "POST",
@@ -301,8 +319,27 @@ export const api = {
         taskingId,
         viewerName: options?.viewerName,
         viewerId: options?.viewerId,
+        operatorId: options?.operatorId,
+        monitorId: options?.monitorId,
       }),
     }),
+
+  listOperators: () => request<{ operators: OperatorData[] }>("/api/operators"),
+
+  createOperator: (callsign: string) =>
+    request<OperatorData>("/api/operators", {
+      method: "POST",
+      body: JSON.stringify({ callsign }),
+    }),
+
+  sendMonitorPrompt: (sessionId: string, text: string) =>
+    request<{ event: TranscriptEventData }>(
+      `/api/sessions/${sessionId}/monitor-prompts`,
+      {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      },
+    ),
 
   listViewers: () => request<{ viewers: ViewerData[] }>("/api/viewers"),
 

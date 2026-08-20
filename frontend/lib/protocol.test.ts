@@ -3,6 +3,7 @@ import {
   canAdvanceStage,
   canRecord,
   EventView,
+  isLeadingPatter,
   openAol,
   stageOneComplete,
 } from "./protocol";
@@ -146,5 +147,12 @@ describe("ARV and WRV", () => {
     expect(
       canRecord("arv", null, "sensory", [{ kind: "aol", stage: null }]),
     ).toBe(false);
+  });
+});
+
+describe("leading patter", () => {
+  it("refuses content fishing", () => {
+    expect(isLeadingPatter("Is it a mountain?")).toBe(true);
+    expect(isLeadingPatter("Take the cue.")).toBe(false);
   });
 });
