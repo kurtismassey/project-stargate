@@ -184,9 +184,7 @@ export default function OpsConsole() {
                 : "--"
             }
             detail={
-              stats
-                ? `chance ${stats.judging.expectedFirstPlace}`
-                : undefined
+              stats ? `chance ${stats.judging.expectedFirstPlace}` : undefined
             }
           />
           <Stat
@@ -210,7 +208,9 @@ export default function OpsConsole() {
                 : "--"
             }
             detail={
-              stats ? `${stats.feedback.sessionsWithFeedback} fed back` : undefined
+              stats
+                ? `${stats.feedback.sessionsWithFeedback} fed back`
+                : undefined
             }
           />
         </div>

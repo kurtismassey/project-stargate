@@ -20,7 +20,11 @@ function dwellLabel(ms: number | null): string {
  * The six CRV stages as a gated rail. Stages ahead of the cursor are
  * sealed, the protocol engine decides when they open.
  */
-export function StageRail({ currentStage, stageRecords, locked }: StageRailProps) {
+export function StageRail({
+  currentStage,
+  stageRecords,
+  locked,
+}: StageRailProps) {
   const dwellByStage = new Map(
     stageRecords.map((record) => [record.stage, record]),
   );
@@ -56,7 +60,11 @@ export function StageRail({ currentStage, stageRecords, locked }: StageRailProps
           >
             <span
               className={`mono text-xs w-6 ${
-                isCurrent ? "text-signal" : isPast ? "text-text" : "text-text-faint"
+                isCurrent
+                  ? "text-signal"
+                  : isPast
+                    ? "text-text"
+                    : "text-text-faint"
               }`}
             >
               {STAGE_ROMAN[stage]}

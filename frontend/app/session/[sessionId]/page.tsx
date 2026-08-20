@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   api,
@@ -135,7 +129,9 @@ function PaperEntry({ event }: { event: TranscriptEventData }) {
       </span>
       <span className={`text-[14px] ${isAol ? "text-[#a06b1f] italic" : ""}`}>
         {event.kind === "aol_break" && !text ? "set aside" : text}
-        {event.kind === "break" ? ` (${String(event.payload.reason ?? "break")})` : ""}
+        {event.kind === "break"
+          ? ` (${String(event.payload.reason ?? "break")})`
+          : ""}
       </span>
     </div>
   );
@@ -413,7 +409,9 @@ export default function ChamberPage() {
               <div className="label">elapsed</div>
             </div>
             <div className="text-right">
-              <div className={`mono text-sm ${session.aolCount > 0 ? "text-warn" : "text-text"}`}>
+              <div
+                className={`mono text-sm ${session.aolCount > 0 ? "text-warn" : "text-text"}`}
+              >
                 {session.aolCount}
               </div>
               <div className="label">AOL</div>
@@ -453,7 +451,9 @@ export default function ChamberPage() {
               onClick={advance}
               disabled={busy || !advanceReady}
             >
-              {stage >= 6 ? "Final stage" : `Advance to ${STAGE_ROMAN[stage + 1]}`}
+              {stage >= 6
+                ? "Final stage"
+                : `Advance to ${STAGE_ROMAN[stage + 1]}`}
             </button>
           ) : null}
         </aside>
@@ -657,19 +657,21 @@ export default function ChamberPage() {
                         <p className="text-[12px] text-text-muted leading-relaxed mt-1">
                           {report.summary}
                         </p>
-                        {report.correspondences.slice(0, 6).map((item, index) => (
-                          <div
-                            key={index}
-                            className="flex gap-2 items-baseline mt-1.5"
-                          >
-                            <span className="mono text-[10px] text-signal shrink-0">
-                              {(item.strength * 100).toFixed(0)}%
-                            </span>
-                            <span className="text-[11px] text-text-muted">
-                              {item.element} → {item.target_feature}
-                            </span>
-                          </div>
-                        ))}
+                        {report.correspondences
+                          .slice(0, 6)
+                          .map((item, index) => (
+                            <div
+                              key={index}
+                              className="flex gap-2 items-baseline mt-1.5"
+                            >
+                              <span className="mono text-[10px] text-signal shrink-0">
+                                {(item.strength * 100).toFixed(0)}%
+                              </span>
+                              <span className="text-[11px] text-text-muted">
+                                {item.element} → {item.target_feature}
+                              </span>
+                            </div>
+                          ))}
                       </div>
                     ))}
                   </div>

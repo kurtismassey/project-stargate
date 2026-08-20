@@ -158,13 +158,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () =>
-    request<{ status: string; aiEnabled: boolean }>("/api/health"),
+  health: () => request<{ status: string; aiEnabled: boolean }>("/api/health"),
 
   stats: () => request<StatsData>("/api/stats"),
 
-  listTaskings: () =>
-    request<{ taskings: TaskingSummary[] }>("/api/taskings"),
+  listTaskings: () => request<{ taskings: TaskingSummary[] }>("/api/taskings"),
 
   createTasking: (body: {
     protocol?: Protocol;
@@ -177,8 +175,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  listSessions: () =>
-    request<{ sessions: SessionSummary[] }>("/api/sessions"),
+  listSessions: () => request<{ sessions: SessionSummary[] }>("/api/sessions"),
 
   startSession: (taskingId: string, viewerName?: string) =>
     request<SessionSummary>("/api/sessions", {

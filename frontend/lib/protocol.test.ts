@@ -61,9 +61,9 @@ describe("stage advancement", () => {
 
   it("requires stage structure before advancing later stages", () => {
     expect(canAdvanceStage(2, trio)).toBe(false);
-    expect(
-      canAdvanceStage(2, [...trio, { kind: "sensory", stage: 2 }]),
-    ).toBe(true);
+    expect(canAdvanceStage(2, [...trio, { kind: "sensory", stage: 2 }])).toBe(
+      true,
+    );
   });
 
   it("never advances past Stage VI", () => {
@@ -123,8 +123,8 @@ describe("ERV variant", () => {
   });
 
   it("still gates on open AOL", () => {
-    expect(canRecord("erv", null, "sensory", [{ kind: "aol", stage: null }])).toBe(
-      false,
-    );
+    expect(
+      canRecord("erv", null, "sensory", [{ kind: "aol", stage: null }]),
+    ).toBe(false);
   });
 });

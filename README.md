@@ -4,37 +4,60 @@
 
 </div>
 
-<div align="center">
-<a style="padding-left: 25px" href="https://idx.google.com/import?url=https%3A%2F%2Fgithub.com%2Fkurtismassey%2Fproject-stargate">
-  <img
-    height="32"
-    alt="Open in IDX"
-    src="https://cdn.idx.dev/btn/open_dark_32.svg">
-</a>
-</div>&nbsp;
+<div style="padding-top: 25px; padding-bottom: 25px" align="center"><img src="./resources/project_stargate.png" width="60%"></div>
 
-<div style="padding-top: 25px; padding-bottom: 25px" align="center"><img src="./resources/project_stargate.png" width="60%"></div>&nbsp;
+# Project Stargate
 
-> [!NOTE]
-> PROTOTYPE&nbsp;
+A remote viewing research platform. It runs protocol-faithful CRV and ERV sessions with sealed double-blind targeting, records a typed multimodal transcript with research-scale instrumentation, scores sessions by independent rank-order judging, and stores the sequential-series data that trans-temporal inhibition analyses need. Built the way a contractor lab would ship it if the SRI/CIA Star Gate program were funded today.
 
-Project Stargate AI is an open source project based on the research work by the [Stanford Research Institute into Remote Viewing (RV)](https://www.newdualism.org/papers/H.Puthoff/CIA-Initiated%20Remote%20Viewing%20At%20Stanford%20Research%20Institute.htm), the practice of seeking impressions about a distant or unseen subject, beginning in the 1970s.&nbsp;
+The protocols are implemented from the declassified record, not from folklore. The knowledge base at [`docs/research/`](docs/research/) cites every primary source, including the 1986 Coordinate Remote Viewing manual (Swann/Smith), Puthoff's account of the CIA-initiated SRI program, the Puthoff/Targ Perceptual Augmentation Techniques final report, the DIA Star Gate methodology briefing, Tart's trans-temporal inhibition chapter, and the Utts and Hyman assessments from the 1995 AIR evaluation.
 
-<div align="center"><img src="./resources/natural_language.png" width="100%"></div>&nbsp;
+## The core loop
 
-A key problem identified with the evaluation of remote viewing sessions is that the data is returned in the format of sketches and natural language. Proving to be a rather problematic to adequately run automated evaluation on, with early work done into fuzzy matching response data. The advancement of Large language models (LLMs) and more particularly multimodal large language models (MLLMs) (such as [_Google Gemini_](https://cloud.google.com/use-cases/multimodal-ai?hl=en#generate-text-code-video-audio-and-images-from-virtually-any-content-type)) means that we are now in an even better position to extract insight from these particular forms of data.&nbsp;
+1. **Tasking.** The operator seals a target from a pool. The server picks it at random and the viewer only ever receives an opaque tasking number (or coordinates). Every seal gets a SHA-256 receipt.
+2. **Chamber.** The session runs in a viewing chamber with a paper objectification surface. CRV sessions start at Stage I and progress through the six stages in order. The engine refuses out-of-structure entries, exactly as a monitor would.
+3. **Structure.** Ideogram, A and B components, sensory data, dimensionals, the Stage IV matrix, interrogation, rendering. AOL declarations and breaks are first-class transcript events with timestamps.
+4. **Lock.** Irreversible. The transcript closes and only then do feedback, judging, and analysis open. Blindness before lock is enforced by the API and proven by test.
+5. **Feedback.** The seal breaks, the target reveals, and feedback latency is recorded (Tart's training variable).
+6. **Judgment.** A blind judge rank-orders the true target against pool decoys. That rank is the score of record. The LLM analyst gives an advisory second opinion, never the official score.
 
-<div align="center"><img src="./resources/base.png" width="100%"></div>
-<div align="center"><img src="./resources/example.png" width="100%"></div>
+## Protocol enforcement
 
-#### TO DO:
+- Stage II cannot accept objectification before a complete Stage I ideogram trio exists.
+- After an AOL declaration, signal entries are refused until the AOL break is objectified.
+- The monitor (AI or engine patter) never leads, never names content, and never sees the target. A leading-language filter discards anything that fishes for content.
+- ERV runs as a free-form variant with the same blindness, lock, and transcript rules.
+- Sequential series record trial positions so hits can be scored at lags -2 to +2 for TTI analysis.
 
-- Integrate Google Maps API _(Places API)_ for Coordinate RV
+## Stack
 
-## Getting Started
+- **Backend** FastAPI, SQLModel, versioned startup migrations. SQLite by default, Postgres via `DATABASE_URL`.
+- **Frontend** Next.js, Tailwind. REST for session control, WebSocket for live ink relay.
+- **AI** Gemini via LangChain for the monitor and post-lock analyst. Both fail closed, the session loop runs fully without `GOOGLE_API_KEY`.
+
+## Getting started
 
 ```bash
+make install
 make dev
 ```
 
-Populate your .env with the example.env variables
+Backend on `http://localhost:8000`, frontend on `https://localhost:3000`. Optionally populate `.env` from `example.env` to enable AI assistance.
+
+```bash
+make test      # backend pytest + frontend vitest
+make lint      # ruff + mypy + tsc + eslint
+```
+
+The backend suite proves the invariants: target bytes absent from every pre-lock payload, stage gating, AOL gating, displacement recording on a sequential series, and seal verification at feedback.
+
+## Research documentation
+
+| Document | Contents |
+|---|---|
+| [`docs/research/SOURCES.md`](docs/research/SOURCES.md) | Every primary source read, with URLs and what was taken |
+| [`docs/research/PROGRAM.md`](docs/research/PROGRAM.md) | Program history, SCANATE through STAR GATE, people, the 1995 closeout |
+| [`docs/research/PROTOCOLS.md`](docs/research/PROTOCOLS.md) | CRV stages, ERV, monitor rules, AOL, breaks, judging |
+| [`docs/research/TART-TTI.md`](docs/research/TART-TTI.md) | Trans-temporal inhibition and its schema requirements |
+| [`docs/research/METRICS.md`](docs/research/METRICS.md) | Every field collected and why |
+| [`docs/research/PRODUCT-SPEC.md`](docs/research/PRODUCT-SPEC.md) | The functional spec, mapped to sources |
