@@ -27,11 +27,13 @@ from core.models.rv import (
     Series,
     SessionEnvironment,
     StageRecord,
+    TargetKind,
     TargetPool,
     Tasking,
     Viewer,
     utcnow,
 )
+from services import export as research_export
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from services import session_engine
@@ -76,10 +78,11 @@ class CreatePoolRequest(BaseModel):
 
 
 class AddTargetRequest(BaseModel):
-    payload_b64: str = Field(alias="payloadB64")
+    payload_b64: str | None = Field(default=None, alias="payloadB64")
     title: str = ""
     coordinates: str | None = None
     feedback_notes: str = Field(default="", alias="feedbackNotes")
+    kind: TargetKind = TargetKind.IMAGE
 
 
 @router.get("/pools")
@@ -114,10 +117,28 @@ async def add_target(
     pool = await db.get(TargetPool, pool_id)
     if pool is None:
         raise HTTPException(404, "Pool not found")
+    if body.kind == TargetKind.COORDINATE_SITE and not body.coordinates:
+        raise HTTPException(422, "Coordinate sites need coordinates")
+    if body.kind == TargetKind.IMAGE and not body.payload_b64:
+        raise HTTPException(422, "Image targets need a payload")
+
+    payload = body.payload_b64
+    if payload and body.kind == TargetKind.IMAGE:
+        import base64
+
+        from agents.target.tool import compress_image
+
+        try:
+            raw = base64.b64decode(payload)
+        except Exception:
+            raw = payload.encode("utf-8")
+        payload = compress_image(raw, 800, 600, 85)
+
     target = SealedTarget(
         pool_id=pool.id,
-        payload_b64=body.payload_b64,
-        payload_sha256=session_engine.sha256_b64(body.payload_b64),
+        kind=body.kind,
+        payload_b64=payload,
+        payload_sha256=session_engine.sha256_b64(payload) if payload else None,
         title=body.title,
         coordinates=body.coordinates,
         feedback_notes=body.feedback_notes,
@@ -126,7 +147,41 @@ async def add_target(
     db.add(target)
     await db.commit()
     # Only the seal receipt leaves the server. The payload stays sealed.
-    return {"id": str(target.id), "payloadSha256": target.payload_sha256}
+    return {
+        "id": str(target.id),
+        "payloadSha256": target.payload_sha256,
+        "kind": target.kind.value,
+    }
+
+
+@router.get("/pools/{pool_id}")
+async def get_pool(pool_id: UUID, db: AsyncSession = Depends(get_session)):
+    """Operator vault view. Receipts only, never payloads or titles."""
+    pool = await db.get(TargetPool, pool_id)
+    if pool is None:
+        raise HTTPException(404, "Pool not found")
+    targets = list(
+        (
+            await db.exec(
+                select(SealedTarget)
+                .where(SealedTarget.pool_id == pool_id)
+                .order_by(col(SealedTarget.created_at))
+            )
+        ).all()
+    )
+    return {
+        **serialize_pool(pool, len(targets)),
+        "receipts": [
+            {
+                "id": str(target.id),
+                "kind": target.kind.value,
+                "payloadSha256": target.payload_sha256,
+                "hasCoordinates": bool(target.coordinates),
+                "sealedAt": target.sealed_at.isoformat() if target.sealed_at else None,
+            }
+            for target in targets
+        ],
+    }
 
 
 # ---------------------------------------------------------------- series
@@ -251,6 +306,14 @@ async def get_series(series_id: UUID, db: AsyncSession = Depends(get_session)):
     if series is None:
         raise HTTPException(404, "Series not found")
     return await _series_bundle(db, series)
+
+
+@router.get("/series/{series_id}/package")
+async def get_series_package(series_id: UUID, db: AsyncSession = Depends(get_session)):
+    try:
+        return await research_export.series_package(db, series_id)
+    except EngineError as error:
+        _raise(error)
 
 
 @router.post("/series/{series_id}/trials", status_code=201)
@@ -475,6 +538,16 @@ async def lock_session(session_id: UUID, db: AsyncSession = Depends(get_session)
 async def get_feedback(session_id: UUID, db: AsyncSession = Depends(get_session)):
     try:
         return await session_engine.get_feedback(db, session_id)
+    except EngineError as error:
+        _raise(error)
+
+
+@router.get("/sessions/{session_id}/package")
+async def get_session_package(
+    session_id: UUID, db: AsyncSession = Depends(get_session)
+):
+    try:
+        return await research_export.session_package(db, session_id)
     except EngineError as error:
         _raise(error)
 
