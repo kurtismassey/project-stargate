@@ -188,10 +188,85 @@ async def _migration_0003_arv_pairs(engine: AsyncEngine) -> None:
             )
 
 
+async def _add_column(conn, table: str, column: str, sqlite_type: str, pg_type: str):
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        result = await conn.execute(text(f"PRAGMA table_info({table})"))
+        columns = {row[1] for row in result.fetchall()}
+        if column not in columns:
+            await conn.execute(
+                text(f"ALTER TABLE {table} ADD COLUMN {column} {sqlite_type}")
+            )
+    else:
+        await conn.execute(
+            text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {pg_type}")
+        )
+
+
+async def _migration_0004_viewers_and_fom(engine: AsyncEngine) -> None:
+    """Named viewers and May figure-of-merit columns on judgments."""
+    from core.models.rv import Judgment, RVSession, Viewer
+    from services import scoring
+    from sqlmodel import select
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+        await _add_column(conn, "rv_sessions", "viewer_id", "VARCHAR", "UUID")
+        await _add_column(
+            conn, "judgments", "accuracy", "FLOAT DEFAULT 0", "DOUBLE PRECISION"
+        )
+        await _add_column(
+            conn, "judgments", "reliability", "FLOAT DEFAULT 0", "DOUBLE PRECISION"
+        )
+        await _add_column(
+            conn,
+            "judgments",
+            "figure_of_merit",
+            "FLOAT DEFAULT 0",
+            "DOUBLE PRECISION",
+        )
+
+    async with AsyncSession(engine, expire_on_commit=False) as db:
+        sessions = list((await db.exec(select(RVSession))).all())
+        by_name: dict[str, Viewer] = {}
+        for session in sessions:
+            name = session.viewer_name or "Viewer 001"
+            viewer = by_name.get(name)
+            if viewer is None:
+                existing = (
+                    await db.exec(select(Viewer).where(Viewer.callsign == name))
+                ).first()
+                if existing is None:
+                    existing = Viewer(callsign=name)
+                    db.add(existing)
+                    await db.flush()
+                by_name[name] = existing
+                viewer = existing
+            if session.viewer_id is None:
+                session.viewer_id = viewer.id
+                db.add(session)
+
+        judgments = list((await db.exec(select(Judgment))).all())
+        for judgment in judgments:
+            if judgment.figure_of_merit:
+                continue
+            judgment.accuracy = scoring.graded_accuracy(
+                judgment.rank_of_true_target, judgment.pool_size
+            )
+            judgment.reliability = 1.0
+            judgment.figure_of_merit = scoring.figure_of_merit(
+                judgment.accuracy, judgment.reliability
+            )
+            db.add(judgment)
+        await db.commit()
+
+
 MIGRATIONS = [
     (1, "create research schema", _migration_0001_create_schema),
     (2, "import legacy prototype sessions", _migration_0002_import_legacy_sessions),
     (3, "arv pairs and tasking associate binding", _migration_0003_arv_pairs),
+    (4, "viewers and May figure of merit", _migration_0004_viewers_and_fom),
 ]
 
 

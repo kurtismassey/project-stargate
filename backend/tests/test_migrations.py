@@ -83,9 +83,7 @@ def test_legacy_sessions_import_without_loss(client):
         async with AsyncSession(engine, expire_on_commit=False) as db:
             imported = (
                 await db.exec(
-                    select(RVSession).where(
-                        RVSession.source == f"legacy:{legacy_id}"
-                    )
+                    select(RVSession).where(RVSession.source == f"legacy:{legacy_id}")
                 )
             ).one()
             assert imported.status.value == "archived"
@@ -109,9 +107,7 @@ def test_legacy_sessions_import_without_loss(client):
 
             report = (
                 await db.exec(
-                    select(AnalystReport).where(
-                        AnalystReport.session_id == imported.id
-                    )
+                    select(AnalystReport).where(AnalystReport.session_id == imported.id)
                 )
             ).one()
             assert report.advisory_score == 3.4

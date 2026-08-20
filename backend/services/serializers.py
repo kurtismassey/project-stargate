@@ -45,6 +45,7 @@ def serialize_session(
         "id": str(session.id),
         "status": session.status,
         "currentStage": session.current_stage,
+        "viewerId": str(session.viewer_id) if session.viewer_id else None,
         "viewerName": session.viewer_name,
         "monitorMode": session.monitor_mode,
         "monitorBlind": session.monitor_blind,

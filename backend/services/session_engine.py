@@ -30,9 +30,11 @@ from core.models.rv import (
     TargetPool,
     Tasking,
     TranscriptEvent,
+    Viewer,
     utcnow,
 )
 from services import protocol as protocol_rules
+from services import scoring
 from services.protocol import EventView, Refusal
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -328,8 +330,22 @@ def cue_text(tasking: Tasking, target: SealedTarget) -> str:
     return tasking.tasking_number
 
 
+async def get_or_create_viewer(db: AsyncSession, callsign: str) -> Viewer:
+    name = callsign.strip() or "Viewer 001"
+    existing = (await db.exec(select(Viewer).where(Viewer.callsign == name))).first()
+    if existing is not None:
+        return existing
+    viewer = Viewer(callsign=name)
+    db.add(viewer)
+    await db.flush()
+    return viewer
+
+
 async def start_session(
-    db: AsyncSession, tasking_id: UUID, viewer_name: str = "Viewer 001"
+    db: AsyncSession,
+    tasking_id: UUID,
+    viewer_name: str = "Viewer 001",
+    viewer_id: UUID | None = None,
 ) -> RVSession:
     tasking = await db.get(Tasking, tasking_id)
     if tasking is None:
@@ -345,10 +361,18 @@ async def start_session(
     if target is None:
         raise EngineError("target_not_found", "Sealed target missing", 500)
 
+    if viewer_id is not None:
+        viewer = await db.get(Viewer, viewer_id)
+        if viewer is None:
+            raise EngineError("viewer_not_found", "Viewer not found", 404)
+    else:
+        viewer = await get_or_create_viewer(db, viewer_name)
+
     is_crv = tasking.protocol == Protocol.CRV
     session = RVSession(
         tasking_id=tasking.id,
-        viewer_name=viewer_name,
+        viewer_id=viewer.id,
+        viewer_name=viewer.callsign,
         monitor_mode=tasking.environment,
         monitor_blind=True,
     )
@@ -807,6 +831,13 @@ async def record_judgment(
             "bad_ranks", "Ranks must be a permutation of 1..pool size", 422
         )
 
+    events = await _load_events(db, session_id)
+    accuracy = scoring.graded_accuracy(ranks[tasking.target_id], len(ranks))
+    reliability = scoring.transcript_reliability(
+        [event.kind for event in events], session.aol_count
+    )
+    fom = scoring.figure_of_merit(accuracy, reliability)
+
     judgment = Judgment(
         session_id=session.id,
         judge_kind=judge_kind,
@@ -815,6 +846,9 @@ async def record_judgment(
         rankings=[{"targetId": str(t), "rank": r} for t, r in ranks.items()],
         rank_of_true_target=ranks[tasking.target_id],
         pool_size=len(ranks),
+        accuracy=accuracy,
+        reliability=reliability,
+        figure_of_merit=fom,
         notes=notes,
     )
     db.add(judgment)
@@ -828,6 +862,7 @@ async def record_judgment(
             detail={
                 "rank_of_true_target": judgment.rank_of_true_target,
                 "pool_size": judgment.pool_size,
+                "figure_of_merit": judgment.figure_of_merit,
             },
         )
     )

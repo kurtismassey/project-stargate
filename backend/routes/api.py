@@ -29,6 +29,7 @@ from core.models.rv import (
     StageRecord,
     TargetPool,
     Tasking,
+    Viewer,
     utcnow,
 )
 from fastapi import APIRouter, Depends, HTTPException
@@ -333,6 +334,12 @@ async def create_tasking(
 class StartSessionRequest(BaseModel):
     tasking_id: UUID = Field(alias="taskingId")
     viewer_name: str = Field(default="Viewer 001", alias="viewerName")
+    viewer_id: UUID | None = Field(default=None, alias="viewerId")
+
+
+class CreateViewerRequest(BaseModel):
+    callsign: str
+    notes: str = ""
 
 
 class AppendEventRequest(BaseModel):
@@ -362,7 +369,10 @@ async def start_session(
 ):
     try:
         session = await session_engine.start_session(
-            db, body.tasking_id, body.viewer_name
+            db,
+            body.tasking_id,
+            viewer_name=body.viewer_name,
+            viewer_id=body.viewer_id,
         )
     except EngineError as error:
         _raise(error)
@@ -406,6 +416,9 @@ async def get_session_detail(session_id: UUID, db: AsyncSession = Depends(get_se
             "rankOfTrueTarget": judgment.rank_of_true_target,
             "poolSize": judgment.pool_size,
             "judgeName": judgment.judge_name,
+            "accuracy": judgment.accuracy,
+            "reliability": judgment.reliability,
+            "figureOfMerit": judgment.figure_of_merit,
             "createdAt": judgment.created_at.isoformat(),
         }
         if judgment
@@ -520,6 +533,9 @@ async def record_judgment(
         "id": str(judgment.id),
         "rankOfTrueTarget": judgment.rank_of_true_target,
         "poolSize": judgment.pool_size,
+        "accuracy": judgment.accuracy,
+        "reliability": judgment.reliability,
+        "figureOfMerit": judgment.figure_of_merit,
     }
 
 
@@ -621,6 +637,96 @@ async def run_analysis(session_id: UUID, db: AsyncSession = Depends(get_session)
 @router.get("/stats")
 async def stats(db: AsyncSession = Depends(get_session)):
     return await population_stats(db)
+
+
+# ---------------------------------------------------------------- viewers
+
+
+@router.get("/viewers")
+async def list_viewers(db: AsyncSession = Depends(get_session)):
+    stats_body = await population_stats(db)
+    listed = (await db.exec(select(Viewer).order_by(col(Viewer.created_at)))).all()
+    by_id = {row["id"]: row for row in stats_body["viewers"] if row["id"]}
+    viewers = []
+    for viewer in listed:
+        block = by_id.get(
+            str(viewer.id),
+            {
+                "sessions": 0,
+                "judgedSessions": 0,
+                "firstPlaceMatches": 0,
+                "meanFigureOfMerit": None,
+                "meanRankOfTrueTarget": None,
+            },
+        )
+        viewers.append(
+            {
+                "id": str(viewer.id),
+                "callsign": viewer.callsign,
+                "notes": viewer.notes,
+                "createdAt": viewer.created_at.isoformat(),
+                "sessions": block.get("sessions", 0),
+                "judgedSessions": block.get("judgedSessions", 0),
+                "firstPlaceMatches": block.get("firstPlaceMatches", 0),
+                "meanFigureOfMerit": block.get("meanFigureOfMerit"),
+                "meanRankOfTrueTarget": block.get("meanRankOfTrueTarget"),
+            }
+        )
+    return {"viewers": viewers}
+
+
+@router.post("/viewers", status_code=201)
+async def create_viewer(
+    body: CreateViewerRequest, db: AsyncSession = Depends(get_session)
+):
+    callsign = body.callsign.strip()
+    if not callsign:
+        raise HTTPException(422, "callsign is required")
+    viewer = await session_engine.get_or_create_viewer(db, callsign)
+    if body.notes and not viewer.notes:
+        viewer.notes = body.notes
+        db.add(viewer)
+    await db.commit()
+    await db.refresh(viewer)
+    return {
+        "id": str(viewer.id),
+        "callsign": viewer.callsign,
+        "notes": viewer.notes,
+        "createdAt": viewer.created_at.isoformat(),
+    }
+
+
+@router.get("/viewers/{viewer_id}")
+async def get_viewer(viewer_id: UUID, db: AsyncSession = Depends(get_session)):
+    viewer = await db.get(Viewer, viewer_id)
+    if viewer is None:
+        raise HTTPException(404, "Viewer not found")
+    sessions = (
+        await db.exec(
+            select(RVSession)
+            .where(RVSession.viewer_id == viewer_id)
+            .order_by(col(RVSession.started_at).desc())
+        )
+    ).all()
+    stats_body = await population_stats(db)
+    block = next(
+        (row for row in stats_body["viewers"] if row["id"] == str(viewer_id)),
+        {
+            "sessions": len(sessions),
+            "judgedSessions": 0,
+            "firstPlaceMatches": 0,
+            "meanFigureOfMerit": None,
+            "meanRankOfTrueTarget": None,
+        },
+    )
+    return {
+        "id": str(viewer.id),
+        "callsign": viewer.callsign,
+        "notes": viewer.notes,
+        "createdAt": viewer.created_at.isoformat(),
+        "stats": block,
+        "sessions": [await _session_bundle(db, session) for session in sessions],
+    }
 
 
 # ------------------------------------------------------- AI monitor hook

@@ -180,6 +180,17 @@ class Tasking(SQLModel, table=True):
     sealed_at: datetime = Field(default_factory=utcnow, nullable=False)
 
 
+class Viewer(SQLModel, table=True):
+    """A named source. Population statistics group by viewer [UTTS-1995]."""
+
+    __tablename__ = "viewers"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    callsign: str = Field(index=True, unique=True)
+    notes: str = Field(default="")
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
 class RVSession(SQLModel, table=True):
     __tablename__ = "rv_sessions"
 
@@ -190,6 +201,7 @@ class RVSession(SQLModel, table=True):
     # default here would overwrite an explicit None at flush time.
     current_stage: int | None = Field(default=None)
 
+    viewer_id: UUID | None = Field(default=None, foreign_key="viewers.id", index=True)
     viewer_name: str = Field(default="Viewer 001")
     monitor_mode: SessionEnvironment = Field(default=SessionEnvironment.MONITORED_AI)
     monitor_blind: bool = Field(default=True)
@@ -246,6 +258,9 @@ class Judgment(SQLModel, table=True):
     rankings: list = Field(default_factory=list, sa_column=Column(JSON))
     rank_of_true_target: int
     pool_size: int
+    accuracy: float = Field(default=0.0)
+    reliability: float = Field(default=0.0)
+    figure_of_merit: float = Field(default=0.0)
 
     notes: str = Field(default="")
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
