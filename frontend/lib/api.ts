@@ -64,6 +64,7 @@ export interface JudgmentData {
   accuracy?: number;
   reliability?: number;
   figureOfMerit?: number;
+  fomMethod?: string;
   createdAt: string;
 }
 
@@ -82,6 +83,8 @@ export interface FeedbackData {
     payloadSha256: string | null;
     coordinates: string | null;
     feedbackNotes: string;
+    descriptors?: Record<string, number>;
+    encoded?: boolean;
   };
   feedbackAt: string;
   feedbackLatencyMs: number | null;
@@ -161,6 +164,7 @@ export interface StatsData {
     meanAccuracy?: number | null;
     meanReliability?: number | null;
     meanFigureOfMerit?: number | null;
+    byMethod?: Record<string, number>;
   };
   viewers?: ViewerStats[];
   feedback: { meanLatencyMs: number | null; sessionsWithFeedback: number };
@@ -197,6 +201,7 @@ export interface PoolReceipt {
   kind: string;
   payloadSha256: string | null;
   hasCoordinates: boolean;
+  encoded?: boolean;
   sealedAt: string | null;
 }
 
@@ -204,6 +209,21 @@ export interface LagTarget {
   lag: number;
   exists: boolean;
   target: { id: string; payloadB64: string | null; coordinates: string | null } | null;
+}
+
+export const LAB_KEY_STORAGE = "stargate-lab-key";
+
+export function getLabKey(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem(LAB_KEY_STORAGE) ?? "";
+}
+
+export function setLabKey(key: string) {
+  sessionStorage.setItem(LAB_KEY_STORAGE, key);
+}
+
+export function clearLabKey() {
+  sessionStorage.removeItem(LAB_KEY_STORAGE);
 }
 
 export class ApiError extends Error {
@@ -218,9 +238,15 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const labKey = getLabKey();
+  if (labKey) headers.set("X-Lab-Key", labKey);
   const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers,
   });
   if (!response.ok) {
     let code = "error";
@@ -242,7 +268,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ status: string; aiEnabled: boolean }>("/api/health"),
+  health: () =>
+    request<{ status: string; aiEnabled: boolean; labKeyRequired: boolean }>(
+      "/api/health",
+    ),
 
   stats: () => request<StatsData>("/api/stats"),
 
@@ -324,6 +353,7 @@ export const api = {
     sessionId: string,
     rankings: { targetId: string; rank: number }[],
     judgeName?: string,
+    responseDescriptors?: Record<string, number>,
   ) =>
     request<{
       id: string;
@@ -332,12 +362,15 @@ export const api = {
       accuracy: number;
       reliability: number;
       figureOfMerit: number;
-    }>(
-      `/api/sessions/${sessionId}/judgments`,
-      {
-        method: "POST",
-        body: JSON.stringify({ rankings, judgeName }),
-      },
+      fomMethod: string;
+    }>(`/api/sessions/${sessionId}/judgments`, {
+      method: "POST",
+      body: JSON.stringify({ rankings, judgeName, responseDescriptors }),
+    }),
+
+  suggestDescriptors: (sessionId: string) =>
+    request<{ descriptors: Record<string, number> }>(
+      `/api/sessions/${sessionId}/descriptor-suggestion`,
     ),
 
   recordDisplacement: (
@@ -407,6 +440,7 @@ export const api = {
       title?: string;
       coordinates?: string;
       kind?: "image" | "coordinate_site";
+      descriptors?: Record<string, number>;
     },
   ) =>
     request<{ id: string; payloadSha256: string | null; kind: string }>(

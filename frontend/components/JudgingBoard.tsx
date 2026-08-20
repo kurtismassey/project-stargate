@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, LagTarget, PoolMember } from "@/lib/api";
+import { DescriptorBoard } from "@/components/DescriptorBoard";
 
 interface JudgingBoardProps {
   sessionId: string;
@@ -14,6 +15,7 @@ interface JudgingBoardProps {
     figureOfMerit?: number;
     accuracy?: number;
     reliability?: number;
+    fomMethod?: string;
   } | null;
 }
 
@@ -36,7 +38,11 @@ export function JudgingBoard({
     figureOfMerit?: number;
     accuracy?: number;
     reliability?: number;
+    fomMethod?: string;
   } | null>(initialResult);
+  const [responseDescriptors, setResponseDescriptors] = useState<
+    Record<string, number>
+  >({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lag, setLag] = useState(1);
@@ -69,6 +75,16 @@ export function JudgingBoard({
     loadLags();
   }, [judged, loadPool, loadLags]);
 
+  useEffect(() => {
+    if (judged) return;
+    api
+      .suggestDescriptors(sessionId)
+      .then((data) => setResponseDescriptors(data.descriptors))
+      .catch(() => {
+        // Suggestion is optional. The judge can encode from a blank board.
+      });
+  }, [judged, sessionId]);
+
   const assignRank = (targetId: string) => {
     setRanks((previous) => {
       const next = new Map(previous);
@@ -93,7 +109,12 @@ export function JudgingBoard({
         targetId,
         rank,
       }));
-      const outcome = await api.recordJudgment(sessionId, rankings, "Operator");
+      const outcome = await api.recordJudgment(
+        sessionId,
+        rankings,
+        "Operator",
+        responseDescriptors,
+      );
       setResult(outcome);
       onJudged();
     } catch (err) {
@@ -158,6 +179,7 @@ export function JudgingBoard({
               {result.accuracy != null && result.reliability != null
                 ? `  (${result.accuracy.toFixed(2)} × ${result.reliability.toFixed(2)})`
                 : ""}
+              {result.fomMethod ? `  ${result.fomMethod}` : ""}
             </p>
           ) : null}
         </div>
@@ -201,6 +223,20 @@ export function JudgingBoard({
                 </button>
               );
             })}
+          </div>
+          <div className="mt-4 pt-3 border-t border-line">
+            <span className="label">Response encoding</span>
+            <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
+              Encode the transcript, not the photographs. The server
+              compares this set to the sealed target encoding.
+            </p>
+            <div className="mt-2">
+              <DescriptorBoard
+                value={responseDescriptors}
+                onChange={setResponseDescriptors}
+                disabled={busy}
+              />
+            </div>
           </div>
           <button
             className="btn btn-signal w-full mt-3"

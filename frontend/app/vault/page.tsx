@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, PoolData, PoolReceipt } from "@/lib/api";
+import { api, getLabKey, PoolData, PoolReceipt } from "@/lib/api";
+import { DescriptorBoard } from "@/components/DescriptorBoard";
+import { LabGate } from "@/components/LabGate";
 
 function fileToB64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -26,10 +28,17 @@ export default function VaultPage() {
   const [title, setTitle] = useState("");
   const [coordinates, setCoordinates] = useState("");
   const [lastReceipt, setLastReceipt] = useState("");
+  const [descriptors, setDescriptors] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [labLocked, setLabLocked] = useState(false);
 
   const refresh = useCallback(async () => {
+    const health = await api.health();
+    if (health.labKeyRequired && !getLabKey()) {
+      setLabLocked(true);
+      return;
+    }
     const data = await api.listPools();
     setPools(data.pools);
     const current = selected || data.pools[0]?.id || "";
@@ -69,9 +78,11 @@ export default function VaultPage() {
         payloadB64,
         title: title.trim(),
         kind: "image",
+        descriptors,
       });
       setLastReceipt(receipt.payloadSha256 ?? "");
       setTitle("");
+      setDescriptors({});
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Seal failed");
@@ -88,10 +99,12 @@ export default function VaultPage() {
         title: title.trim(),
         coordinates: coordinates.trim(),
         kind: "coordinate_site",
+        descriptors,
       });
       setLastReceipt(receipt.payloadSha256 ?? "coordinate site");
       setCoordinates("");
       setTitle("");
+      setDescriptors({});
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Seal failed");
@@ -99,6 +112,17 @@ export default function VaultPage() {
       setBusy(false);
     }
   };
+
+  if (labLocked) {
+    return (
+      <LabGate
+        onUnlocked={() => {
+          setLabLocked(false);
+          refresh();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -155,7 +179,7 @@ export default function VaultPage() {
             <h2 className="label">Seal a target</h2>
             <p className="text-[12px] text-text-muted mt-2 leading-relaxed">
               The server stores the photograph. You get a SHA-256 receipt.
-              Titles stay off the viewer wire.
+              Titles and descriptor memberships stay off the viewer wire.
             </p>
             <input
               className="input w-full mt-3"
@@ -192,6 +216,14 @@ export default function VaultPage() {
                 Seal site
               </button>
             </div>
+            <div className="mt-4">
+              <h3 className="label mb-2">Target encoding</h3>
+              <p className="text-[11px] text-text-faint mb-2 leading-relaxed">
+                Click once for present, twice for partial. This is the May
+                target set used at judgment.
+              </p>
+              <DescriptorBoard value={descriptors} onChange={setDescriptors} />
+            </div>
             {lastReceipt ? (
               <p className="mono text-[10px] text-signal mt-3 break-all">
                 seal {lastReceipt}
@@ -220,6 +252,7 @@ export default function VaultPage() {
                     </div>
                   </div>
                   <span className="label shrink-0">
+                    {row.encoded ? "encoded · " : ""}
                     {row.hasCoordinates ? "coords" : "image"}
                   </span>
                 </div>

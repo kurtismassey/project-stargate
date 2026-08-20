@@ -661,6 +661,12 @@ export default function ChamberPage() {
                     <div className="mono text-[9px] text-text-faint mt-2 break-all">
                       seal {feedback.target.payloadSha256}
                     </div>
+                    {feedback.target.descriptors &&
+                    Object.keys(feedback.target.descriptors).length > 0 ? (
+                      <p className="mono text-[10px] text-text-muted mt-2">
+                        encoded {Object.keys(feedback.target.descriptors).join(" · ")}
+                      </p>
+                    ) : null}
                   </div>
                 ) : (
                   <button
@@ -686,6 +692,7 @@ export default function ChamberPage() {
                         figureOfMerit: session.judgment.figureOfMerit,
                         accuracy: session.judgment.accuracy,
                         reliability: session.judgment.reliability,
+                        fomMethod: session.judgment.fomMethod,
                       }
                     : null
                 }

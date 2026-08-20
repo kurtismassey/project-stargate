@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   api,
+  getLabKey,
   SeriesData,
   SessionSummary,
   StatsData,
@@ -11,6 +12,7 @@ import {
   ViewerData,
   PoolData,
 } from "@/lib/api";
+import { LabGate } from "@/components/LabGate";
 import { Protocol, STAGE_ROMAN } from "@/lib/protocol";
 
 const PROTOCOL_OPTIONS: { value: Protocol; label: string }[] = [
@@ -78,6 +80,7 @@ export default function OpsConsole() {
   const [selectedPool, setSelectedPool] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [labLocked, setLabLocked] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -103,6 +106,7 @@ export default function OpsConsole() {
       setSessions(sessionData.sessions);
       setSeries(seriesData.series);
       setAiEnabled(healthData.aiEnabled);
+      setLabLocked(healthData.labKeyRequired && !getLabKey());
       setViewers(viewerData.viewers);
       setSelectedViewer((current) => current || viewerData.viewers[0]?.id || "");
       setPools(poolData.pools);
@@ -201,6 +205,17 @@ export default function OpsConsole() {
   const openTaskings = taskings.filter((t) => !t.sessionId);
   const recentSessions = sessions.slice(0, 30);
 
+  if (labLocked) {
+    return (
+      <LabGate
+        onUnlocked={() => {
+          setLabLocked(false);
+          refresh();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-line bg-chrome-1">
@@ -267,7 +282,11 @@ export default function OpsConsole() {
                 ? stats.judging.meanFigureOfMerit.toFixed(2)
                 : "--"
             }
-            detail="accuracy × reliability"
+            detail={
+              stats?.judging.byMethod?.fuzzy
+                ? `May fuzzy on ${stats.judging.byMethod.fuzzy}`
+                : "accuracy × reliability"
+            }
           />
           <Stat
             label="AOL / session"
