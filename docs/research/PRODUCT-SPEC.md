@@ -60,7 +60,7 @@ A remote viewing research console for a single-operator lab. The operator seals 
 
 ### F9. Population statistics
 
-- Home console shows first-place rate versus 1/pool-size chance, mean rank, session counts by protocol and environment, AOL rates, mean feedback latency, and displacement summaries [UTTS-1995] [TART-TTI].
+- Home console shows first-place rate versus 1/pool-size chance, mean rank, May figure of merit, session counts by protocol and environment, AOL rates, mean feedback latency, displacement summaries, and a per-viewer roster [UTTS-1995] [TART-TTI] [MAY-FOM].
 
 ### F10. Migration and storage
 
@@ -91,6 +91,11 @@ Tasking, then chamber, then structured session, then lock, then feedback, then j
 
 - WRV is a runnable protocol. Written and phonetic objectification (`viewer_note`) is first-class. Same blindness, lock, and transcript rules as ERV [CIA-BRIEF].
 - The chamber defaults to a written pad. Ideograms are refused.
+
+### F13. Viewers and figure of merit
+
+- A `viewers` row is the population unit. Sessions bind a viewer. The ops roster shows sessions, first-place rate, and mean FoM per source [UTTS-1995].
+- Each judgment stores accuracy (graded rank), reliability (signal vs declared AOL), and figure of merit (the product), May's official composite [MAY-FOM].
 
 ## Out of scope for this slice
 

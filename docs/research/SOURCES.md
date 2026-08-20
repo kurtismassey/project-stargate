@@ -34,6 +34,11 @@ Every document fetched and read for this knowledge base, with what the platform 
 - URL read: https://documents2.theblackvault.com/documents/cia/CIA-RDP96-00789R003300210001-2.pdf
 - Taken from it: DIA operational definitions of psychoenergetics and remote viewing, the three sanctioned methodologies (Extended Remote Viewing, Coordinate Remote Viewing, Written Remote Viewing), tasking categories and target types, the operational tasking sheet fields (project number, session number, date, method, source identifier, encrypted coordinates), and the report and evaluation formats with accuracy and value ratings. These ground the platform's tasking model and cue types.
 
+### [MAY-FOM] May, E. C., fuzzy-set figure of merit for free-response anomalous cognition
+
+- Primary papers: May, Utts, Humphrey, and colleagues on fuzzy-set analysis of free-response AC (SRI/SAIC technical reports in the Star Gate collection). Summary treatment appears throughout the SAIC era work Utts assessed [UTTS-1995].
+- Taken from it: Accuracy is the fraction of the response that describes the target. Reliability is the fraction of the target described by the response. Figure of merit is the product. The platform stores that composite on every judgment. Without a fuzzy-set encoding of imagery, accuracy is the graded rank `(N - rank + 1) / N` and reliability is the process-variable ratio of signal events to signal-plus-declared-AOL. The product stays on the same 0 to 1 scale May used.
+
 ### [UTTS-1995] Utts, J., "An Assessment of the Evidence for Psychic Functioning" (1995, for the AIR review)
 
 - URL read: https://www.scientificexploration.org/docs/10/jse_10_1_utts.pdf (JSE Vol. 10, No. 1 reprint)

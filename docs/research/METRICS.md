@@ -65,7 +65,8 @@ Blindness invariant. `payload_b64`, `title`, `feedback_notes`, and `coordinates`
 | `id`, `tasking_id` | One session executes one tasking |
 | `status` | `active`, `locked`, `judged`, `archived`. Lock is the irreversible gate between viewing and feedback [PROTOCOLS.md] |
 | `current_stage` | 1 to 6 for CRV, null for ERV, ARV, and WRV. The state machine's cursor [CRV-MANUAL] |
-| `viewer_name` | Population statistics group by viewer [UTTS-1995] |
+| `viewer_id` | Foreign key to `viewers`. The population unit [UTTS-1995] |
+| `viewer_name` | Denormalized callsign for the session header |
 | `monitor_mode`, `monitor_blind` | Whether a monitor participated and whether it was blind, since training and operational modes differ [CRV-MANUAL] |
 | `started_at`, `locked_at`, `feedback_at` | Session timeline. `feedback_at - locked_at` is feedback latency [TART-TTI] |
 | `feedback_latency_ms` | Materialized for query speed on training analyses [TART-TTI] |
@@ -100,7 +101,17 @@ The multimodal transcript. One append-only row per event, replacing the old chat
 | `pool_target_ids` | The exact pool presented, in presentation order, for reproducibility [PAT-REPORT] |
 | `rankings` | JSON list of (target_id, rank) |
 | `rank_of_true_target`, `pool_size` | The scored outcome. First-place probability under the null is 1/pool_size [UTTS-1995] |
+| `accuracy` | Graded rank, `(N - rank + 1) / N`. Rank 1 is 1.0 [MAY-FOM] |
+| `reliability` | Signal events / (signal + declared AOL). Empty transcript is 0 [MAY-FOM] [UTTS-1995] |
+| `figure_of_merit` | `accuracy × reliability`, May's official composite [MAY-FOM] |
 | `notes`, `created_at` | Judge commentary, audit |
+
+## viewers
+
+| Field | Why |
+|---|---|
+| `id`, `callsign` | Named source. Utts statistics group by viewer, not by session [UTTS-1995] |
+| `notes`, `created_at` | Roster audit |
 
 ## displacement_scores
 
