@@ -15,7 +15,7 @@ The protocols are implemented from the declassified record, not from folklore. T
 ## The core loop
 
 1. **Tasking.** The operator seals a target from a pool. The server picks it at random and the viewer only ever receives an opaque tasking number (or coordinates). Every seal gets a SHA-256 receipt.
-2. **Chamber.** The session runs in a viewing chamber with a paper objectification surface. CRV sessions start at Stage I and progress through the six stages in order. The engine refuses out-of-structure entries, exactly as a monitor would.
+2. **Chamber.** The session runs in a viewing chamber with a paper objectification surface. CRV sessions start at Stage I and progress through the six stages in order. The engine refuses out-of-structure entries, exactly as a monitor would. A human monitor can sit a parallel blind desk, send prescribed patter, and lock. That desk never sees the target.
 3. **Structure.** Ideogram, A and B components, sensory data, dimensionals, the Stage IV matrix, interrogation, rendering. AOL declarations and breaks are first-class transcript events with timestamps.
 4. **Lock.** Irreversible. The transcript closes and only then do feedback, judging, and analysis open. Blindness before lock is enforced by the API and proven by test.
 5. **Feedback.** The seal breaks, the target reveals, and feedback latency is recorded (Tart's training variable).

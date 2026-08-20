@@ -68,6 +68,8 @@ Blindness invariant. `payload_b64`, `title`, `feedback_notes`, and `coordinates`
 | `current_stage` | 1 to 6 for CRV, null for ERV, ARV, and WRV. The state machine's cursor [CRV-MANUAL] |
 | `viewer_id` | Foreign key to `viewers`. The population unit [UTTS-1995] |
 | `viewer_name` | Denormalized callsign for the session header |
+| `operator_id`, `operator_name` | Who cut and sat ops for this session |
+| `monitor_id`, `monitor_name` | Human monitor when `monitor_mode` is `monitored_human` [CRV-MANUAL] |
 | `monitor_mode`, `monitor_blind` | Whether a monitor participated and whether it was blind, since training and operational modes differ [CRV-MANUAL] |
 | `started_at`, `locked_at`, `feedback_at` | Session timeline. `feedback_at - locked_at` is feedback latency [TART-TTI] |
 | `feedback_latency_ms` | Materialized for query speed on training analyses [TART-TTI] |
@@ -108,6 +110,13 @@ The multimodal transcript. One append-only row per event, replacing the old chat
 | `fom_method` | `fuzzy` or `rank_process`. Says which definition filled the three scores |
 | `response_descriptors` | Judge encoding of the transcript against the same vocabulary. Compared to `sealed_targets.descriptors`, never shown the target memberships [MAY-FOM] |
 | `notes`, `created_at` | Judge commentary, audit |
+
+## operators
+
+| Field | Why |
+|---|---|
+| `id`, `callsign` | Named lab staff. The CRV pair is viewer plus monitor [CRV-MANUAL] |
+| `notes`, `created_at` | Roster audit |
 
 ## viewers
 

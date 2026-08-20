@@ -4,7 +4,7 @@ What the software must do, each requirement mapped to the source that justifies 
 
 ## The product in one paragraph
 
-A remote viewing research console for a single-operator lab. The operator seals targets into pools, cuts taskings with opaque cue numbers, and runs protocol-enforced sessions in a viewing chamber. The chamber keeps the viewer blind, walks CRV structure stage by stage (or free-form for ERV, ARV, and WRV), records a typed multimodal transcript with full timestamps, and locks before any feedback. After lock the target unseals, the analyst model gives an advisory read, and blind rank-order judging produces the official score. Series of sessions accumulate the displacement and latency data Tart's trans-temporal inhibition analysis needs.
+A remote viewing research console for a lab. Operators seal targets into pools, cut taskings with opaque cue numbers, and run protocol-enforced sessions in a viewing chamber. A human monitor can sit a parallel blind desk. The chamber keeps the viewer blind, walks CRV structure stage by stage (or free-form for ERV, ARV, and WRV), records a typed multimodal transcript with full timestamps, and locks before any feedback. After lock the target unseals, the analyst model gives an advisory read, and blind rank-order judging produces the official score. Series of sessions accumulate the displacement and latency data Tart's trans-temporal inhibition analysis needs.
 
 ## Functional requirements
 
@@ -109,6 +109,12 @@ Tasking, then chamber, then structured session, then lock, then feedback, then j
 - When `LAB_KEY` is set, mutating ops (tasking, vault, start session, judging, export) require the `X-Lab-Key` header. Chamber writes on an existing session stay open so a viewer does not hold the key.
 - When the key is empty the lab stays open, which is the default for local work and tests.
 
+### F16. Operators and human-monitor pairing
+
+- An `operators` row is named lab staff. A session can bind an operator and a human monitor [CRV-MANUAL].
+- Environment `monitored_human` opens a monitor desk at `/monitor/{sessionId}`. The desk sees live paper, prescribed patter, and lock. It never unseals the target. Feedback and judging stay on the ops chamber.
+- Human patter is refused if it names or fishes for content. The same leading filter the AI monitor uses.
+
 ## Out of scope for this slice
 
-Named operator accounts beyond a shared lab key, human-monitor pairing UX beyond live ink watching, outbound-beacon targets.
+Outbound-beacon targets, per-operator login secrets beyond the shared lab key.
