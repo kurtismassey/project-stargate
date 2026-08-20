@@ -8,6 +8,7 @@ interface JudgingBoardProps {
   inSeries: boolean;
   judged: boolean;
   onJudged: () => void;
+  initialResult?: { rankOfTrueTarget: number; poolSize: number } | null;
 }
 
 /**
@@ -19,13 +20,14 @@ export function JudgingBoard({
   inSeries,
   judged,
   onJudged,
+  initialResult = null,
 }: JudgingBoardProps) {
   const [pool, setPool] = useState<PoolMember[]>([]);
   const [ranks, setRanks] = useState<Map<string, number>>(new Map());
   const [result, setResult] = useState<{
     rankOfTrueTarget: number;
     poolSize: number;
-  } | null>(null);
+  } | null>(initialResult);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lag, setLag] = useState(1);

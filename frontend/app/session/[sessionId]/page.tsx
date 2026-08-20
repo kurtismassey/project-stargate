@@ -664,6 +664,14 @@ export default function ChamberPage() {
                 inSeries={inSeries}
                 judged={session.status === "judged"}
                 onJudged={refreshSession}
+                initialResult={
+                  session.judgment
+                    ? {
+                        rankOfTrueTarget: session.judgment.rankOfTrueTarget,
+                        poolSize: session.judgment.poolSize,
+                      }
+                    : null
+                }
               />
 
               <div className="panel p-4">

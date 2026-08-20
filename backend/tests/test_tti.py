@@ -99,6 +99,8 @@ class TestJudging:
 
         detail = client.get(f"/api/sessions/{session_id}").json()
         assert detail["status"] == "judged"
+        assert detail["judgment"]["rankOfTrueTarget"] == body["rankOfTrueTarget"]
+        assert detail["judgment"]["poolSize"] == 5
 
     def test_judgment_requires_full_permutation(self, client):
         _, sessions = make_series_with_trials(client, count=1)

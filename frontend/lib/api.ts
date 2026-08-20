@@ -55,9 +55,18 @@ export interface StageRecordData {
   dwellMs: number | null;
 }
 
+export interface JudgmentData {
+  id: string;
+  rankOfTrueTarget: number;
+  poolSize: number;
+  judgeName: string;
+  createdAt: string;
+}
+
 export interface SessionDetail extends SessionSummary {
   events: TranscriptEventData[];
   stageRecords: StageRecordData[];
+  judgment?: JudgmentData | null;
 }
 
 export interface FeedbackData {

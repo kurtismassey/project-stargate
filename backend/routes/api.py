@@ -20,6 +20,7 @@ from core.models.rv import (
     EventKind,
     FeedbackPolicy,
     JudgeKind,
+    Judgment,
     Protocol,
     RVSession,
     SealedTarget,
@@ -392,6 +393,24 @@ async def get_session_detail(session_id: UUID, db: AsyncSession = Depends(get_se
         }
         for r in records
     ]
+    judgment = (
+        await db.exec(
+            select(Judgment)
+            .where(Judgment.session_id == session_id)
+            .order_by(col(Judgment.created_at).desc())
+        )
+    ).first()
+    bundle["judgment"] = (
+        {
+            "id": str(judgment.id),
+            "rankOfTrueTarget": judgment.rank_of_true_target,
+            "poolSize": judgment.pool_size,
+            "judgeName": judgment.judge_name,
+            "createdAt": judgment.created_at.isoformat(),
+        }
+        if judgment
+        else None
+    )
     return bundle
 
 
