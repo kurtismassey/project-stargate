@@ -1,173 +1,112 @@
-import base64
-from pathlib import Path
+"""Post-lock analyst.
 
-from agents.models import SessionAnalysis
-from agents.target.tool import compress_image
-from core.config.logger import logger
+Compares a locked session's transcript and sketches against the sealed
+target and stores an advisory AnalystReport. Refuses unlocked sessions,
+so target material cannot leak through this path [PAT-REPORT]. The
+generated "target model" concept from the prototype is gone, accuracy is
+judged only against the sealed target [product spec F8].
+"""
+
+from pathlib import Path
+from uuid import UUID
+
+from agents.models import AnalystAssessment
 from core.config.settings import settings
-from core.models.session import Session
+from core.models.rv import (
+    AnalystReport,
+    EventKind,
+    RVSession,
+    RVSessionStatus,
+    SealedTarget,
+    Tasking,
+)
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from services import session_engine
+from services.session_engine import EngineError
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+TEXT_KINDS = {
+    EventKind.IDEOGRAM_A,
+    EventKind.IDEOGRAM_B,
+    EventKind.SENSORY,
+    EventKind.DIMENSIONAL,
+    EventKind.AESTHETIC_IMPACT,
+    EventKind.EMOTIONAL_IMPACT,
+    EventKind.TANGIBLE,
+    EventKind.INTANGIBLE,
+    EventKind.AOL,
+    EventKind.AOL_SIGNAL,
+    EventKind.VIEWER_NOTE,
+}
 
 
-async def analyse_session(
-    session: Session,
-    drawings: list[str],
-    target_image: str | None = None,
-    target_model: str | None = None,
-) -> SessionAnalysis:
-    """
-    Analyse a completed remote viewing session.
+async def run_analyst(db: AsyncSession, session_id: UUID) -> AnalystReport:
+    session = await db.get(RVSession, session_id)
+    if session is None:
+        raise EngineError("session_not_found", "Session not found", 404)
+    if session.status == RVSessionStatus.ACTIVE:
+        raise EngineError(
+            "not_locked", "Analysis is sealed until the session locks.", 403
+        )
 
-    Args:
-        session: The session data
-        drawings: A list of base64 data URLs for each stage's drawing
-        target_image: The actual target image as base64 string
-        target_model: The generated target model as base64 string
+    tasking = await db.get(Tasking, session.tasking_id)
+    assert tasking is not None
+    target = await db.get(SealedTarget, tasking.target_id)
+    assert target is not None
 
-    Returns:
-        The analyst's structured analysis of the session.
-    """
+    events = await session_engine._load_events(db, session_id)
+    lines = []
+    sketch_images: list[str] = []
+    for event in events:
+        if event.kind in TEXT_KINDS:
+            stage = f"S{event.stage}" if event.stage else "--"
+            lines.append(
+                f"[{stage}] {event.kind.value}: {event.payload.get('text', '')}"
+            )
+        elif event.kind == EventKind.SKETCH:
+            image = event.payload.get("imageB64")
+            if image:
+                sketch_images.append(image)
+        elif event.kind == EventKind.IDEOGRAM:
+            image = event.payload.get("imageB64")
+            if image:
+                sketch_images.append(image)
+
+    prompt_path = Path(__file__).parent / "prompt.txt"
+    template = prompt_path.read_text(encoding="utf-8")
+    prompt = template.format(transcript="\n".join(lines) or "(no verbal data)")
+
+    content: list[dict] = [{"type": "text", "text": prompt}]
+    for image in sketch_images[:8]:
+        if not image.startswith("data:image"):
+            image = f"data:image/png;base64,{image}"
+        content.append({"type": "image_url", "image_url": {"url": image}})
+    if target.payload_b64:
+        target_url = target.payload_b64
+        if not target_url.startswith("data:image"):
+            target_url = f"data:image/jpeg;base64,{target_url}"
+        content.append({"type": "image_url", "image_url": {"url": target_url}})
+
     llm = ChatGoogleGenerativeAI(
         model=settings.LLM_MODEL,
         api_key=settings.GOOGLE_API_KEY,
-        temperature=0.7,
+        temperature=0.1,
     )
+    analyst = llm.with_structured_output(AnalystAssessment)
+    assessment = await analyst.ainvoke([HumanMessage(content=content)])  # type: ignore[arg-type]
 
-    prompt_path = Path(__file__).parent / "prompt.txt"
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        prompt_template = f.read()
+    if not isinstance(assessment, AnalystAssessment):
+        raise EngineError("bad_analysis", "Analyst returned no assessment", 502)
 
-    analyst = llm.with_structured_output(SessionAnalysis)
-
-    chat_history = "\n".join([f"{m.user}: {m.text}" for m in session.chat])
-    drawings_input = "\n".join(
-        [f"Stage {i + 1}: [Image Data]" for i, d in enumerate(drawings) if d]
+    report = AnalystReport(
+        session_id=session.id,
+        model=settings.LLM_MODEL,
+        summary=assessment.summary,
+        correspondences=[c.model_dump() for c in assessment.correspondences],
+        advisory_score=assessment.advisory_score,
     )
-
-    prompt = prompt_template.format(
-        input=chat_history,
-        drawings_input=drawings_input,
-    )
-
-    content = [{"type": "text", "text": prompt}]
-
-    logger.info(f"Starting session analysis with {len(drawings)} drawings")
-
-    if target_image:
-        try:
-            base64_data = (
-                target_image.split(",")[-1] if "," in target_image else target_image
-            )
-            image_data = base64.b64decode(base64_data)
-            compressed_target = compress_image(
-                image_data, max_width=600, max_height=400, quality=80
-            )
-            content.append(
-                {
-                    "type": "text",
-                    "text": "=== ACTUAL TARGET IMAGE (USE THIS FOR ALL ACCURACY SCORING) ===",
-                }
-            )
-            content.append(
-                {
-                    "type": "image_url",
-                    "image_url": f"data:image/jpeg;base64,{compressed_target}",
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error compressing target image: {e}")
-            content.append(
-                {
-                    "type": "text",
-                    "text": "=== ACTUAL TARGET IMAGE (USE THIS FOR ALL ACCURACY SCORING) ===",
-                }
-            )
-            content.append(
-                {
-                    "type": "image_url",
-                    "image_url": f"data:image/jpeg;base64,{target_image}",
-                }
-            )
-
-    if target_model:
-        try:
-            base64_data = (
-                target_model.split(",")[-1] if "," in target_model else target_model
-            )
-            image_data = base64.b64decode(base64_data)
-            compressed_model = compress_image(
-                image_data, max_width=600, max_height=400, quality=80
-            )
-            content.append(
-                {
-                    "type": "text",
-                    "text": "=== TARGET MODEL (REFERENCE ONLY - DO NOT USE FOR SCORING) ===",
-                }
-            )
-            content.append(
-                {
-                    "type": "image_url",
-                    "image_url": f"data:image/jpeg;base64,{compressed_model}",
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error compressing target model: {e}")
-            content.append(
-                {
-                    "type": "text",
-                    "text": "=== TARGET MODEL (REFERENCE ONLY - DO NOT USE FOR SCORING) ===",
-                }
-            )
-            content.append(
-                {
-                    "type": "image_url",
-                    "image_url": f"data:image/jpeg;base64,{target_model}",
-                }
-            )
-
-    for i, drawing_data in enumerate(drawings):
-        if drawing_data:
-            try:
-                base64_data = (
-                    drawing_data.split(",")[-1] if "," in drawing_data else drawing_data
-                )
-                image_data = base64.b64decode(base64_data)
-                compressed_drawing = compress_image(
-                    image_data, max_width=400, max_height=300, quality=75
-                )
-                content.append(
-                    {
-                        "type": "image_url",
-                        "image_url": f"data:image/jpeg;base64,{compressed_drawing}",
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error compressing drawing {i + 1}: {e}")
-                continue
-
-    logger.info(f"Analysis complete with {len(content)} content items")
-
-    response = await analyst.ainvoke([HumanMessage(content=content)])  # type: ignore
-
-    if isinstance(response, SessionAnalysis):
-        return response
-    else:
-        return SessionAnalysis(
-            overall_summary="Analysis failed",
-            stage_by_stage_analysis=[],
-            final_assessment_score=0,
-            overall_quality_score=0,
-            target_accuracy_score=0,
-            sensory_details_score=0,
-            dimensional_data_score=0,
-            emotional_energetic_score=0,
-            aol_contamination_score=0,
-            consistency_score=0,
-            stage_development_score=0,
-            composite_score=0.0,
-            session_strengths=["Analysis failed"],
-            session_weaknesses=["Unable to analyse session"],
-            aol_instances=[],
-            target_correlations=[],
-        )
+    db.add(report)
+    await db.commit()
+    await db.refresh(report)
+    return report

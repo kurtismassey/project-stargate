@@ -1,121 +1,55 @@
+"""Structured outputs for the AI monitor and analyst."""
+
 from pydantic import BaseModel, Field
 
 
-class Analysis(BaseModel):
-    """
-    Analysis of a remote viewing session.
-    """
+class MonitorDecision(BaseModel):
+    """One review pass over the viewer's latest transcript entry.
 
-    key_impressions: list[str] = Field(
-        description="Key impressions and themes from the session."
-    )
-    consistency: str = Field(
-        description="Consistency in descriptions throughout the session."
-    )
-    sensory_details: list[str] = Field(description="Notable sensory details.")
-    potential_matches: list[str] = Field(description="Potential matches to the target.")
-    quality_assessment: str = Field(description="Overall session quality assessment.")
-
-
-class StageAnalysis(BaseModel):
-    """
-    Analysis of a single stage in a remote viewing session.
+    The monitor's default is silence. It speaks only to keep structure,
+    never to add content [CRV-MANUAL].
     """
 
-    stage: int = Field(description="The stage number being analysed.")
-    summary: str = Field(
-        description="A concise summary of the viewer's perceptions and drawings in this stage."
+    action: str = Field(
+        description="Either 'silence' or 'prompt'. Silence is the default."
     )
-    key_elements: list[str] = Field(
-        description="A list of the most important objects, concepts, or sensory data from this stage."
+    text: str = Field(
+        default="",
+        description=(
+            "The prompt to give when action is 'prompt'. Short prescribed "
+            "patter only, one sentence."
+        ),
     )
-
-
-class SessionAnalysis(BaseModel):
-    """
-    A complete, structured analysis of a remote viewing session with comprehensive scoring.
-    """
-
-    overall_summary: str = Field(
-        description="A high-level summary of the entire session, synthesizing all stages."
-    )
-    stage_by_stage_analysis: list[StageAnalysis] = Field(
-        description="A detailed breakdown of the analysis for each individual stage."
-    )
-    final_assessment_score: int = Field(
-        description="An overall session quality score from 0 (no discernible data) to 7 (clear, detailed, and accurate target description), based on the established marking criteria.",
-        ge=0,
-        le=7,
-    )
-
-    overall_quality_score: int = Field(
-        description="Overall session quality and coherence score (0-7)",
-        ge=0,
-        le=7,
-    )
-    target_accuracy_score: int = Field(
-        description="Accuracy of target correlation score (0-7)",
-        ge=0,
-        le=7,
-    )
-    sensory_details_score: int = Field(
-        description="Richness and specificity of sensory data score (0-7)",
-        ge=0,
-        le=7,
-    )
-    dimensional_data_score: int = Field(
-        description="Accuracy of dimensional data score (0-7)",
-        ge=0,
-        le=7,
-    )
-    emotional_energetic_score: int = Field(
-        description="Quality of emotional and energetic data score (0-7)",
-        ge=0,
-        le=7,
-    )
-    aol_contamination_score: int = Field(
-        description="Level of AOL contamination score (0-7, lower is better)",
-        ge=0,
-        le=7,
-    )
-    consistency_score: int = Field(
-        description="Consistency across stages score (0-7)",
-        ge=0,
-        le=7,
-    )
-    stage_development_score: int = Field(
-        description="Progressive development through stages score (0-7)",
-        ge=0,
-        le=7,
-    )
-
-    composite_score: float = Field(
-        description="Weighted composite score based on all metrics",
-        ge=0.0,
-        le=7.0,
-    )
-
-    session_strengths: list[str] = Field(
-        description="Key strengths identified in the session",
-        default_factory=list,
-    )
-    session_weaknesses: list[str] = Field(
-        description="Areas for improvement identified in the session",
-        default_factory=list,
-    )
-    aol_instances: list[str] = Field(
-        description="Specific AOL contamination instances with examples",
-        default_factory=list,
-    )
-    target_correlations: list[str] = Field(
-        description="Specific correlations between session data and target",
-        default_factory=list,
+    aol_suspected: bool = Field(
+        default=False,
+        description=(
+            "True when the entry reads as analytic naming rather than "
+            "low-level signal data."
+        ),
     )
 
 
-class MonitorResponse(BaseModel):
-    """
-    Response from the monitor to the viewer.
-    """
+class Correspondence(BaseModel):
+    element: str = Field(description="Transcript element, quoted or summarized")
+    target_feature: str = Field(
+        description="Feature of the sealed target it corresponds to, or "
+        "'none' when the element has no match"
+    )
+    strength: float = Field(
+        ge=0, le=1, description="Correspondence strength, 0 none to 1 exact"
+    )
 
-    response: str = Field(description="The monitor's response to the viewer.")
+
+class AnalystAssessment(BaseModel):
+    """Advisory post-lock read of a session against the sealed target."""
+
+    summary: str = Field(description="Concise narrative of the session's fit")
+    correspondences: list[Correspondence] = Field(default_factory=list)
+    advisory_score: float = Field(
+        ge=0,
+        le=7,
+        description=(
+            "Advisory accuracy on the historical 0 to 7 scale. Never the "
+            "official score, judging is [UTTS-1995]."
+        ),
+    )

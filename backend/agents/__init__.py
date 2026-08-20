@@ -1,14 +1,11 @@
-"""
-AI agents for Project Stargate
+"""AI assistance for the platform.
+
+Both agents fail closed. Without GOOGLE_API_KEY the monitor stays silent
+and the analyst endpoint returns unavailable, and the session loop runs
+unaffected.
 """
 
-from .analyst.tool import analyse_session
-from .monitor.tool import get_monitor_response
-from .target.tool import generate_target_model_image, select_random_target_image
+from .analyst.tool import run_analyst
+from .monitor.tool import run_monitor
 
-__all__ = [
-    "analyse_session",
-    "get_monitor_response",
-    "generate_target_model_image",
-    "select_random_target_image",
-]
+__all__ = ["run_analyst", "run_monitor"]

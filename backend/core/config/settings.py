@@ -6,13 +6,18 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///database.db"
 
     LLM_MODEL: str = "gemini-2.5-flash"
-    IMAGE_MODEL: str = "gemini-2.5-flash-image"
-    GOOGLE_API_KEY: str
+    # Empty key means AI assistance is disabled and the session loop runs
+    # without it. AI paths fail closed, never crash the protocol engine.
+    GOOGLE_API_KEY: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
     )
+
+    @property
+    def ai_enabled(self) -> bool:
+        return bool(self.GOOGLE_API_KEY)
 
 
 settings = Settings()

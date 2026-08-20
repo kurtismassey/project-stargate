@@ -2,17 +2,18 @@ from collections.abc import AsyncGenerator
 
 from core.config.settings import settings
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel import SQLModel
+from sqlalchemy.pool import NullPool
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-engine = create_async_engine(settings.DATABASE_URL, echo=True)
+_engine_kwargs: dict = {"echo": False}
+if settings.DATABASE_URL.startswith("sqlite"):
+    # No pooled connections for the local file database. Keeps event-loop
+    # ownership simple for tests and dev reloads.
+    _engine_kwargs["poolclass"] = NullPool
 
-
-async def create_db_and_tables():
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSession(engine) as session:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session
