@@ -1,12 +1,13 @@
 "use client";
 
-import { STAGE_ROMAN, STAGE_TITLES } from "@/lib/protocol";
+import { PROTOCOL_BRIEF, Protocol, STAGE_ROMAN, STAGE_TITLES } from "@/lib/protocol";
 import type { StageRecordData } from "@/lib/api";
 
 interface StageRailProps {
   currentStage: number | null;
   stageRecords: StageRecordData[];
   locked: boolean;
+  protocol?: Protocol;
 }
 
 function dwellLabel(ms: number | null): string {
@@ -24,6 +25,7 @@ export function StageRail({
   currentStage,
   stageRecords,
   locked,
+  protocol = "erv",
 }: StageRailProps) {
   const dwellByStage = new Map(
     stageRecords.map((record) => [record.stage, record]),
@@ -32,10 +34,9 @@ export function StageRail({
   if (currentStage === null) {
     return (
       <div className="panel p-4">
-        <div className="label">Protocol</div>
+        <div className="label">{protocol.toUpperCase()}</div>
         <p className="text-[12px] text-text-muted mt-2 leading-relaxed">
-          ERV free-form session. No stage structure, the transcript and
-          blindness rules still hold.
+          {PROTOCOL_BRIEF[protocol]}
         </p>
       </div>
     );

@@ -14,6 +14,8 @@ import { Protocol, STAGE_ROMAN } from "@/lib/protocol";
 const PROTOCOL_OPTIONS: { value: Protocol; label: string }[] = [
   { value: "crv", label: "CRV" },
   { value: "erv", label: "ERV" },
+  { value: "arv", label: "ARV" },
+  { value: "wrv", label: "WRV" },
 ];
 
 const ENVIRONMENT_OPTIONS = [
@@ -67,6 +69,7 @@ export default function OpsConsole() {
   const [protocol, setProtocol] = useState<Protocol>("crv");
   const [environment, setEnvironment] = useState("monitored_ai");
   const [selectedSeries, setSelectedSeries] = useState("");
+  const [trialCount, setTrialCount] = useState(8);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -117,10 +120,29 @@ export default function OpsConsole() {
     const name = `Series ${String.fromCharCode(65 + series.length)}`;
     setBusy(true);
     try {
-      const created = await api.createSeries(name);
+      const created = await api.createSeries({ name });
       setSelectedSeries(created.id);
       await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Series failed");
     } finally {
+      setBusy(false);
+    }
+  };
+
+  const sealRun = async () => {
+    const name = `Series ${String.fromCharCode(65 + series.length)}`;
+    setBusy(true);
+    try {
+      const created = await api.createSeries({
+        name,
+        trialCount,
+        protocol,
+        environment,
+      });
+      router.push(`/series/${created.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Series run failed");
       setBusy(false);
     }
   };
@@ -221,7 +243,8 @@ export default function OpsConsole() {
               <h2 className="label">Tasking desk</h2>
               <p className="text-[12px] text-text-muted mt-2 leading-relaxed">
                 Cutting a tasking seals a random target from the pool. The cue
-                below is all the viewer ever sees before lock.
+                is all the viewer ever sees before lock. ARV seals one side of
+                an associate pair. WRV is written-first.
               </p>
               <div className="flex gap-2 mt-4 flex-wrap">
                 <select
@@ -269,6 +292,34 @@ export default function OpsConsole() {
               >
                 Seal new tasking
               </button>
+              <div className="mt-5 pt-4 border-t border-line">
+                <h3 className="label">Series runner</h3>
+                <p className="text-[12px] text-text-muted mt-2 leading-relaxed">
+                  Seal a sequential run from one pool. Positions are recorded
+                  so displacement can be scored at lags minus two through plus
+                  two.
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <select
+                    className="select"
+                    value={trialCount}
+                    onChange={(e) => setTrialCount(Number(e.target.value))}
+                  >
+                    {[4, 8, 12, 20].map((count) => (
+                      <option key={count} value={count}>
+                        {count} trials
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn btn-signal flex-1"
+                    onClick={sealRun}
+                    disabled={busy}
+                  >
+                    Seal run
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="panel p-5 mt-4">
@@ -312,6 +363,23 @@ export default function OpsConsole() {
           </section>
 
           <section className="lg:col-span-3">
+            {series.length > 0 ? (
+              <div className="panel p-5 mb-4">
+                <h2 className="label">Series</h2>
+                <div className="mt-3 space-y-2">
+                  {series.map((entry) => (
+                    <button
+                      key={entry.id}
+                      className="panel-inset px-4 py-3 w-full flex items-center justify-between text-left hover:border-line-strong transition-colors"
+                      onClick={() => router.push(`/series/${entry.id}`)}
+                    >
+                      <span className="mono text-sm text-text">{entry.name}</span>
+                      <span className="label">{entry.taskingCount} trials</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="panel p-5">
               <h2 className="label">Session log</h2>
               <div className="mt-3 space-y-2">

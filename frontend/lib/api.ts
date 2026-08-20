@@ -11,6 +11,7 @@ export interface TaskingSummary {
   environment: "solo" | "monitored_ai" | "monitored_human";
   seriesId: string | null;
   seriesPosition: number | null;
+  arvPairId: string | null;
   createdAt: string;
   sealedAt: string;
   sessionId?: string | null;
@@ -120,6 +121,17 @@ export interface SeriesData {
   feedbackPolicy: string;
   taskingCount: number;
   createdAt: string;
+}
+
+export interface SeriesDetail extends SeriesData {
+  trials: TaskingSummary[];
+  displacement: Record<string, { trials: number; hits: number }>;
+}
+
+export interface LagTarget {
+  lag: number;
+  exists: boolean;
+  target: { id: string; payloadB64: string | null; coordinates: string | null } | null;
 }
 
 export class ApiError extends Error {
@@ -242,11 +254,30 @@ export const api = {
 
   listSeries: () => request<{ series: SeriesData[] }>("/api/series"),
 
-  createSeries: (name: string) =>
+  createSeries: (body: {
+    name: string;
+    trialCount?: number;
+    protocol?: Protocol;
+    environment?: string;
+  }) =>
     request<SeriesData>("/api/series", {
       method: "POST",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(body),
     }),
+
+  getSeries: (seriesId: string) => request<SeriesDetail>(`/api/series/${seriesId}`),
+
+  sealSeriesTrials: (
+    seriesId: string,
+    body: { trialCount: number; protocol?: Protocol; environment?: string },
+  ) =>
+    request<SeriesDetail>(`/api/series/${seriesId}/trials`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getLagTargets: (sessionId: string) =>
+    request<{ lags: LagTarget[] }>(`/api/sessions/${sessionId}/lag-targets`),
 
   listAnalysis: (sessionId: string) =>
     request<{ reports: AnalystReportData[] }>(

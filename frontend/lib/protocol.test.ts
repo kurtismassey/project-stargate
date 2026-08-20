@@ -128,3 +128,23 @@ describe("ERV variant", () => {
     ).toBe(false);
   });
 });
+
+describe("ARV and WRV", () => {
+  it("treats ARV as free-form", () => {
+    expect(canRecord("arv", null, "sensory", [])).toBe(true);
+    expect(canRecord("arv", null, "viewer_note", [])).toBe(true);
+    expect(canRecord("arv", null, "ideogram", [])).toBe(false);
+  });
+
+  it("treats WRV as written-first free-form", () => {
+    expect(canRecord("wrv", null, "viewer_note", [])).toBe(true);
+    expect(canRecord("wrv", null, "sensory", [])).toBe(true);
+    expect(canRecord("wrv", null, "ideogram", [])).toBe(false);
+  });
+
+  it("still gates ARV on open AOL", () => {
+    expect(
+      canRecord("arv", null, "sensory", [{ kind: "aol", stage: null }]),
+    ).toBe(false);
+  });
+});

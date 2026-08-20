@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, PoolMember } from "@/lib/api";
+import { api, LagTarget, PoolMember } from "@/lib/api";
 
 interface JudgingBoardProps {
   sessionId: string;
@@ -31,6 +31,8 @@ export function JudgingBoard({
   const [lag, setLag] = useState(1);
   const [lagRank, setLagRank] = useState(1);
   const [lagNote, setLagNote] = useState("");
+  const [lags, setLags] = useState<LagTarget[]>([]);
+  const binary = pool.length === 2;
 
   const loadPool = useCallback(async () => {
     try {
@@ -41,9 +43,20 @@ export function JudgingBoard({
     }
   }, [sessionId]);
 
+  const loadLags = useCallback(async () => {
+    if (!inSeries) return;
+    try {
+      const data = await api.getLagTargets(sessionId);
+      setLags(data.lags);
+    } catch {
+      // Displacement panel stays available without neighbor images.
+    }
+  }, [inSeries, sessionId]);
+
   useEffect(() => {
     if (!judged) loadPool();
-  }, [judged, loadPool]);
+    loadLags();
+  }, [judged, loadPool, loadLags]);
 
   const assignRank = (targetId: string) => {
     setRanks((previous) => {
@@ -115,7 +128,9 @@ export function JudgingBoard({
     <div className="panel p-4">
       <div className="flex items-center justify-between">
         <span className="label">Blind judging</span>
-        <span className="label">rank 1 = best match</span>
+        <span className="label">
+          {binary ? "two associates" : "rank 1 = best match"}
+        </span>
       </div>
 
       {result ? (
@@ -130,8 +145,9 @@ export function JudgingBoard({
       ) : (
         <>
           <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
-            Click pool members in order of match quality, best first. The true
-            target is not marked.
+            {binary
+              ? "Rank the two associates. Rank 1 is the photograph the session described. The true side is not marked."
+              : "Click pool members in order of match quality, best first. The true target is not marked."}
           </p>
           <div className="grid grid-cols-2 gap-2 mt-3">
             {pool.map((member) => {
@@ -180,6 +196,33 @@ export function JudgingBoard({
       {inSeries ? (
         <div className="mt-4 pt-3 border-t border-line">
           <span className="label">Displacement (TTI)</span>
+          <div className="grid grid-cols-4 gap-2 mt-3">
+            {lags
+              .filter((row) => row.exists && row.target)
+              .map((row) => (
+                <button
+                  key={row.lag}
+                  className={`rounded overflow-hidden border ${
+                    lag === row.lag ? "border-signal" : "border-line"
+                  }`}
+                  onClick={() => setLag(row.lag)}
+                >
+                  {row.target?.payloadB64 ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`data:image/jpeg;base64,${row.target.payloadB64}`}
+                      alt={`Lag ${row.lag}`}
+                      className="w-full h-16 object-cover"
+                    />
+                  ) : (
+                    <div className="h-16 bg-chrome-2" />
+                  )}
+                  <div className="mono text-[10px] py-1 text-center">
+                    lag {row.lag > 0 ? `+${row.lag}` : row.lag}
+                  </div>
+                </button>
+              ))}
+          </div>
           <div className="flex gap-2 mt-2 items-center">
             <select
               className="select"

@@ -75,12 +75,26 @@ export const CRV_STAGE_ALLOWED: Record<number, ReadonlySet<EventKind>> = {
   6: new Set(["dimensional", "tangible", "intangible", "sketch"]),
 };
 
-export const ERV_ALLOWED: ReadonlySet<EventKind> = new Set([
+export const FREEFORM_ALLOWED: ReadonlySet<EventKind> = new Set([
   "sensory",
   "dimensional",
   "emotional_impact",
   "sketch",
 ]);
+
+export const ERV_ALLOWED = FREEFORM_ALLOWED;
+export const FREEFORM_PROTOCOLS: ReadonlySet<Protocol> = new Set([
+  "erv",
+  "arv",
+  "wrv",
+]);
+
+export const PROTOCOL_BRIEF: Record<Protocol, string> = {
+  crv: "Coordinate Remote Viewing. Stage I through VI, in structure.",
+  erv: "Extended Remote Viewing. Free-form narrative. Blindness and lock still hold.",
+  arv: "Associative Remote Viewing. Describe the photograph you will see at feedback.",
+  wrv: "Written Remote Viewing. Phonetic fragments and automatic writing on the page.",
+};
 
 const STAGE_ADVANCE_REQUIREMENT: Record<number, ReadonlySet<EventKind>> = {
   2: new Set(["sensory"]),
@@ -148,7 +162,7 @@ export function canRecord(
   if (ALWAYS_ALLOWED.has(kind)) return true;
   if (SIGNAL_KINDS.has(kind) && openAol(events)) return false;
 
-  if (protocol === "erv") return ERV_ALLOWED.has(kind);
+  if (FREEFORM_PROTOCOLS.has(protocol)) return FREEFORM_ALLOWED.has(kind);
   if (protocol !== "crv") return false;
 
   if (currentStage === null || !(currentStage in CRV_STAGE_ALLOWED)) {

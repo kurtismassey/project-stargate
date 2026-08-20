@@ -16,6 +16,7 @@ import {
   EventKind,
   KIND_LABELS,
   openAol,
+  PROTOCOL_BRIEF,
   STAGE_ROMAN,
 } from "@/lib/protocol";
 import {
@@ -59,6 +60,13 @@ const TEXT_KIND_ORDER: EventKind[] = [
   "intangible",
   "aol_signal",
   "viewer_note",
+];
+
+const WRV_KIND_ORDER: EventKind[] = [
+  "viewer_note",
+  "sensory",
+  "dimensional",
+  "emotional_impact",
 ];
 
 function elapsedLabel(startedAt: string, now: number): string {
@@ -352,9 +360,11 @@ export default function ChamberPage() {
     }
   };
 
-  const availableTextKinds = TEXT_KIND_ORDER.filter((kind) =>
+  const kindOrder = protocol === "wrv" ? WRV_KIND_ORDER : TEXT_KIND_ORDER;
+  const availableTextKinds = kindOrder.filter((kind) =>
     canRecord(protocol, stage, kind, eventViews),
   );
+  const writtenFirst = protocol === "wrv";
   const canDrawIdeogram =
     !locked && canRecord(protocol, stage, "ideogram", eventViews);
   const canSketch = !locked && canRecord(protocol, stage, "sketch", eventViews);
@@ -398,6 +408,9 @@ export default function ChamberPage() {
               <div className="label mt-0.5">
                 {protocol.toUpperCase()} / {session.viewerName} /{" "}
                 {session.monitorMode.replace("_", " ")}
+                {session.tasking.seriesPosition != null
+                  ? ` / trial ${session.tasking.seriesPosition}`
+                  : ""}
               </div>
             </div>
           </div>
@@ -444,6 +457,7 @@ export default function ChamberPage() {
             currentStage={session.currentStage}
             stageRecords={session.stageRecords ?? []}
             locked={locked}
+            protocol={protocol}
           />
           {!locked && stage !== null ? (
             <button
@@ -524,20 +538,36 @@ export default function ChamberPage() {
                   ))}
                 </div>
                 <div className="flex gap-2 mt-2">
-                  <input
-                    className="input flex-1"
-                    placeholder={
-                      aolOpen
-                        ? "AOL is open. Objectify the break to resume."
-                        : `Objectify ${KIND_LABELS[entryKind]?.toLowerCase()}...`
-                    }
-                    value={entry}
-                    onChange={(e) => setEntry(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !aolOpen) submitEntry();
-                    }}
-                    disabled={busy || aolOpen}
-                  />
+                  {writtenFirst ? (
+                    <textarea
+                      className="input flex-1 min-h-[88px] py-2"
+                      placeholder={
+                        aolOpen
+                          ? "AOL is open. Objectify the break to resume."
+                          : "Write what arrives. Phonetic fragments, words, phrases."
+                      }
+                      value={entry}
+                      onChange={(e) => setEntry(e.target.value)}
+                      disabled={busy || aolOpen}
+                    />
+                  ) : (
+                    <input
+                      className="input flex-1"
+                      placeholder={
+                        aolOpen
+                          ? "AOL is open. Objectify the break to resume."
+                          : protocol === "arv"
+                            ? "Describe the photograph you will see at feedback."
+                            : `Objectify ${KIND_LABELS[entryKind]?.toLowerCase()}...`
+                      }
+                      value={entry}
+                      onChange={(e) => setEntry(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !aolOpen) submitEntry();
+                      }}
+                      disabled={busy || aolOpen}
+                    />
+                  )}
                   <button
                     className="btn"
                     onClick={submitEntry}
@@ -695,8 +725,8 @@ export default function ChamberPage() {
             <div className="panel p-4">
               <span className="label">Sealed</span>
               <p className="text-[12px] text-text-muted mt-2 leading-relaxed">
-                The target stays sealed until you lock. Feedback, judging, and
-                analysis open after lock.
+                {PROTOCOL_BRIEF[protocol]} The target stays sealed until you
+                lock. Feedback, judging, and analysis open after lock.
               </p>
             </div>
           )}
