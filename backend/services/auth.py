@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from core.models.rv import Operator, OperatorToken, utcnow
 from sqlmodel import select
@@ -75,7 +75,9 @@ async def resolve_token(db: AsyncSession, token: str) -> Operator | None:
     return await db.get(Operator, row.operator_id)
 
 
-async def sign_in(db: AsyncSession, callsign: str, passphrase: str) -> tuple[Operator, str]:
+async def sign_in(
+    db: AsyncSession, callsign: str, passphrase: str
+) -> tuple[Operator, str]:
     name = callsign.strip()
     operator = (
         await db.exec(select(Operator).where(Operator.callsign == name))

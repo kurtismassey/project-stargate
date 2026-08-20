@@ -42,7 +42,7 @@ make install
 make dev
 ```
 
-Backend on `http://localhost:8000`, frontend on `https://localhost:3000`. Optionally populate `.env` from `example.env` to enable AI assistance. Set `LAB_KEY` or give an operator a passphrase to close the ops desk. Chamber URLs stay open. Postgres is `DATABASE_URL=postgresql+asyncpg://...`. A compose file at `docker-compose.yml` starts one.
+Backend on `http://localhost:8000`, frontend on `https://localhost:3000`. Optionally populate `.env` from `example.env` to enable AI assistance. Set `LAB_KEY` or give an operator a passphrase to close the ops desk. Chamber URLs stay open. Postgres is `DATABASE_URL=postgresql+asyncpg://...`. A compose file at `docker-compose.yml` starts one. Backend CI starts Postgres 16 and runs the live asyncpg round-trip.
 
 ```bash
 make test      # backend pytest + frontend vitest

@@ -111,9 +111,7 @@ def test_operator_token_satisfies_lab_key(client, monkeypatch):
     monkeypatch.setattr(settings, "LAB_KEY", "rose-window")
     denied = client.post("/api/taskings", json={})
     assert denied.status_code == 401
-    by_key = client.post(
-        "/api/taskings", json={}, headers={"X-Lab-Key": "rose-window"}
-    )
+    by_key = client.post("/api/taskings", json={}, headers={"X-Lab-Key": "rose-window"})
     assert by_key.status_code == 201
     by_token = client.post(
         "/api/taskings",
