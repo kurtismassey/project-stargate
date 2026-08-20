@@ -9,6 +9,7 @@ import {
   StatsData,
   TaskingSummary,
   ViewerData,
+  PoolData,
 } from "@/lib/api";
 import { Protocol, STAGE_ROMAN } from "@/lib/protocol";
 
@@ -73,19 +74,29 @@ export default function OpsConsole() {
   const [trialCount, setTrialCount] = useState(8);
   const [viewers, setViewers] = useState<ViewerData[]>([]);
   const [selectedViewer, setSelectedViewer] = useState("");
+  const [pools, setPools] = useState<PoolData[]>([]);
+  const [selectedPool, setSelectedPool] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
     try {
-      const [statsData, taskingData, sessionData, seriesData, healthData, viewerData] =
-        await Promise.all([
+      const [
+        statsData,
+        taskingData,
+        sessionData,
+        seriesData,
+        healthData,
+        viewerData,
+        poolData,
+      ] = await Promise.all([
           api.stats(),
           api.listTaskings(),
           api.listSessions(),
           api.listSeries(),
           api.health(),
           api.listViewers(),
+          api.listPools(),
         ]);
       setStats(statsData);
       setTaskings(taskingData.taskings);
@@ -94,6 +105,8 @@ export default function OpsConsole() {
       setAiEnabled(healthData.aiEnabled);
       setViewers(viewerData.viewers);
       setSelectedViewer((current) => current || viewerData.viewers[0]?.id || "");
+      setPools(poolData.pools);
+      setSelectedPool((current) => current || poolData.pools[0]?.id || "");
       setError("");
     } catch {
       setError("Backend unreachable");
@@ -113,6 +126,7 @@ export default function OpsConsole() {
         protocol,
         environment,
         seriesId: selectedSeries || undefined,
+        poolId: selectedPool || undefined,
       });
       await refresh();
     } catch (err) {
@@ -196,6 +210,12 @@ export default function OpsConsole() {
               PROJECT STARGATE
             </h1>
             <div className="label mt-1">Remote viewing operations</div>
+            <button
+              className="label mt-2 text-signal hover:underline"
+              onClick={() => router.push("/vault")}
+            >
+              Vault
+            </button>
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
@@ -312,6 +332,17 @@ export default function OpsConsole() {
                   {ENVIRONMENT_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="select"
+                  value={selectedPool}
+                  onChange={(e) => setSelectedPool(e.target.value)}
+                >
+                  {pools.map((pool) => (
+                    <option key={pool.id} value={pool.id}>
+                      {pool.name} ({pool.targetCount})
                     </option>
                   ))}
                 </select>

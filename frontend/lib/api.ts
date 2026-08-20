@@ -184,6 +184,22 @@ export interface SeriesDetail extends SeriesData {
   displacement: Record<string, { trials: number; hits: number }>;
 }
 
+export interface PoolData {
+  id: string;
+  name: string;
+  description: string;
+  targetCount: number;
+  createdAt: string;
+}
+
+export interface PoolReceipt {
+  id: string;
+  kind: string;
+  payloadSha256: string | null;
+  hasCoordinates: boolean;
+  sealedAt: string | null;
+}
+
 export interface LagTarget {
   lag: number;
   exists: boolean;
@@ -237,6 +253,7 @@ export const api = {
     environment?: string;
     cueType?: string;
     seriesId?: string;
+    poolId?: string;
   }) =>
     request<TaskingSummary>("/api/taskings", {
       method: "POST",
@@ -371,4 +388,47 @@ export const api = {
     request<AnalystReportData>(`/api/sessions/${sessionId}/analysis`, {
       method: "POST",
     }),
+
+  listPools: () => request<{ pools: PoolData[] }>("/api/pools"),
+
+  createPool: (name: string, description?: string) =>
+    request<PoolData>("/api/pools", {
+      method: "POST",
+      body: JSON.stringify({ name, description }),
+    }),
+
+  getPool: (poolId: string) =>
+    request<PoolData & { receipts: PoolReceipt[] }>(`/api/pools/${poolId}`),
+
+  addTarget: (
+    poolId: string,
+    body: {
+      payloadB64?: string;
+      title?: string;
+      coordinates?: string;
+      kind?: "image" | "coordinate_site";
+    },
+  ) =>
+    request<{ id: string; payloadSha256: string | null; kind: string }>(
+      `/api/pools/${poolId}/targets`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  getSessionPackage: (sessionId: string) =>
+    request<Record<string, unknown>>(`/api/sessions/${sessionId}/package`),
+
+  getSeriesPackage: (seriesId: string) =>
+    request<Record<string, unknown>>(`/api/series/${seriesId}/package`),
 };
+
+export function downloadJson(filename: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}

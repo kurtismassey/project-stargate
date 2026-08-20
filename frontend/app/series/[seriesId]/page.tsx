@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { api, SeriesDetail, TaskingSummary } from "@/lib/api";
+import { api, SeriesDetail, TaskingSummary, downloadJson } from "@/lib/api";
 import { Protocol } from "@/lib/protocol";
 
 const PROTOCOL_OPTIONS: { value: Protocol; label: string }[] = [
@@ -124,15 +124,37 @@ export default function SeriesRunnerPage() {
               </div>
             </div>
           </div>
-          {nextOpen ? (
+          <div className="flex items-center gap-2">
             <button
-              className="btn btn-signal"
-              onClick={() => enter(nextOpen)}
+              className="btn"
               disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const pkg = await api.getSeriesPackage(seriesId);
+                  downloadJson(
+                    `stargate-series-${series?.name ?? "run"}.json`,
+                    pkg,
+                  );
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Export failed");
+                } finally {
+                  setBusy(false);
+                }
+              }}
             >
-              Next chamber, trial {nextOpen.seriesPosition}
+              Export package
             </button>
-          ) : null}
+            {nextOpen ? (
+              <button
+                className="btn btn-signal"
+                onClick={() => enter(nextOpen)}
+                disabled={busy}
+              >
+                Next chamber, trial {nextOpen.seriesPosition}
+              </button>
+            ) : null}
+          </div>
         </div>
       </header>
 

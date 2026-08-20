@@ -9,6 +9,7 @@ import {
   FeedbackData,
   SessionDetail,
   TranscriptEventData,
+  downloadJson,
 } from "@/lib/api";
 import {
   canAdvanceStage,
@@ -347,6 +348,19 @@ export default function ChamberPage() {
     }
   };
 
+  const exportPackage = async () => {
+    setBusy(true);
+    setRefusal("");
+    try {
+      const pkg = await api.getSessionPackage(sessionId);
+      downloadJson(`stargate-${session?.tasking.cue ?? sessionId}.json`, pkg);
+    } catch (error) {
+      if (error instanceof ApiError) setRefusal(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const requestAnalysis = async () => {
     setBusy(true);
     setRefusal("");
@@ -676,6 +690,14 @@ export default function ChamberPage() {
                     : null
                 }
               />
+
+              <button
+                className="btn w-full"
+                onClick={exportPackage}
+                disabled={busy}
+              >
+                Export research package
+              </button>
 
               <div className="panel p-4">
                 <div className="flex items-center justify-between">
