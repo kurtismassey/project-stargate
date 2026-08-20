@@ -49,7 +49,7 @@ make test      # backend pytest + frontend vitest
 make lint      # ruff + mypy + tsc + eslint
 ```
 
-The backend suite proves the invariants: target bytes absent from every pre-lock REST payload and chamber WebSocket frame, stage gating, AOL gating, ARV binary judging, displacement recording on a sequential series, and seal verification at feedback.
+The backend suite proves the invariants: target bytes absent from every pre-lock REST payload and chamber WebSocket frame, stage gating, AOL gating, ARV binary judging, displacement recording on a sequential series, seal verification at feedback, and research-package export only after lock.
 
 ## Research documentation
 

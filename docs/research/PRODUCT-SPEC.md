@@ -92,6 +92,11 @@ Tasking, then chamber, then structured session, then lock, then feedback, then j
 - WRV is a runnable protocol. Written and phonetic objectification (`viewer_note`) is first-class. Same blindness, lock, and transcript rules as ERV [CIA-BRIEF].
 - The chamber defaults to a written pad. Ideograms are refused.
 
+### F14. Vault and research packages
+
+- Operators seal image and coordinate-site targets into pools from the vault. Only a SHA-256 receipt leaves the server [PAT-REPORT] [F1].
+- After lock, a session or series can be exported as one unedited JSON package (transcript, judgment, FoM, target, seal hash, audit). Active sessions cannot be exported [PAT-REPORT].
+
 ### F13. Viewers and figure of merit
 
 - A `viewers` row is the population unit. Sessions bind a viewer. The ops roster shows sessions, first-place rate, and mean FoM per source [UTTS-1995].
