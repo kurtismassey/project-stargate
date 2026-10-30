@@ -15,26 +15,30 @@
 
 <div style="padding-top: 25px; padding-bottom: 25px" align="center"><img src="./resources/project_stargate.png" width="60%"></div>&nbsp;
 
-> [!NOTE]
-> PROTOTYPE&nbsp;
-
-Project Stargate AI is an open source project based on the research work by the [Stanford Research Institute into Remote Viewing (RV)](https://www.newdualism.org/papers/H.Puthoff/CIA-Initiated%20Remote%20Viewing%20At%20Stanford%20Research%20Institute.htm), the practice of seeking impressions about a distant or unseen subject, beginning in the 1970s.&nbsp;
+Project Stargate is an open source remote viewing research tool grounded in the [Stanford Research Institute remote viewing record](https://www.newdualism.org/papers/H.Puthoff/CIA-Initiated%20Remote%20Viewing%20At%20Stanford%20Research%20Institute.htm) and the later Star Gate lineage. The live application on `main` is still the freeform chat-and-canvas prototype. The research set below is the target for a protocol-faithful rebuild. Stage gates, sealed tasking, AOL handling, and blind judging are specified there before they land in code.
 
 <div align="center"><img src="./resources/natural_language.png" width="100%"></div>&nbsp;
 
-A key problem identified with the evaluation of remote viewing sessions is that the data is returned in the format of sketches and natural language. Proving to be a rather problematic to adequately run automated evaluation on, with early work done into fuzzy matching response data. The advancement of Large language models (LLMs) and more particularly multimodal large language models (MLLMs) (such as [_Google Gemini_](https://cloud.google.com/use-cases/multimodal-ai?hl=en#generate-text-code-video-audio-and-images-from-virtually-any-content-type)) means that we are now in an even better position to extract insight from these particular forms of data.&nbsp;
+Remote viewing returns sketches and natural language, which made automated evaluation hard. Multimodal models such as [Google Gemini](https://cloud.google.com/use-cases/multimodal-ai?hl=en#generate-text-code-video-audio-and-images-from-virtually-any-content-type) make advisory reads of that material practical. Official scores still come from blind rank-order judging, not from the model.
 
 <div align="center"><img src="./resources/base.png" width="100%"></div>
 <div align="center"><img src="./resources/example.png" width="100%"></div>
 
-#### TO DO:
+## Research documentation
 
-- Integrate Google Maps API _(Places API)_ for Coordinate RV
+| Document | Contents |
+|---|---|
+| [`docs/research/SOURCES.md`](docs/research/SOURCES.md) | Primary sources with URLs and what was taken from each |
+| [`docs/research/PROGRAM.md`](docs/research/PROGRAM.md) | Program history from SCANATE through STAR GATE |
+| [`docs/research/PROTOCOLS.md`](docs/research/PROTOCOLS.md) | CRV stages, AOL, breaks, monitor rules, judging |
+| [`docs/research/TART-TTI.md`](docs/research/TART-TTI.md) | Trans-temporal inhibition and schema needs |
+| [`docs/research/METRICS.md`](docs/research/METRICS.md) | Fields collected and why |
+| [`docs/research/PRODUCT-SPEC.md`](docs/research/PRODUCT-SPEC.md) | Functional and experience requirements |
 
-## Getting Started
+## Getting started
 
 ```bash
 make dev
 ```
 
-Populate your .env with the example.env variables
+Populate `.env` from `example.env` when you want Gemini monitor and analyst paths enabled.

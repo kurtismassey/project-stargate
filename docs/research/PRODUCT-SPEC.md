@@ -1,0 +1,127 @@
+# Product specification
+
+What the software must do, each requirement mapped to the source that justifies it. Citation keys refer to `SOURCES.md`. Schema detail lives in `METRICS.md`, protocol detail in `PROTOCOLS.md`. Citations marked `[product brief …]` are open until the operator supplies that brief. Requirements that rest only on those marks still state the intended behaviour so engineering can proceed.
+
+## The product in one paragraph
+
+A remote viewing research console for a lab. Operators seal targets into pools, cut taskings with opaque cue numbers, and run protocol-enforced sessions in a viewing chamber. A human monitor can sit a parallel blind desk. The chamber keeps the viewer blind, walks CRV structure stage by stage (or free-form for ERV, ARV, and WRV), records a typed multimodal transcript with full timestamps, and locks before any feedback. After lock the target unseals, the analyst model gives an advisory read, and blind rank-order judging produces the official score. Series of sessions accumulate the displacement and latency data Tart's trans-temporal inhibition analysis needs.
+
+## Functional requirements
+
+### F1. Sealed tasking
+
+- Operators create target pools and sealed targets (image upload or coordinate site). Targets get a SHA-256 at seal time [PAT-REPORT].
+- Cutting a tasking binds one sealed target, assigns an opaque tasking number (default cue) or exposes coordinates (supported cue), and never exposes anything else [CIA-BRIEF] [PUTHOFF-CIA].
+- Optionally assigns the tasking to a series with a position for TTI [TART-TTI].
+
+### F2. Blindness invariant (hard)
+
+- No API response, WebSocket frame, or page payload delivered to a viewer or live monitor before lock contains target payload, title, notes, or (for tasking-number cues) coordinates [PAT-REPORT] [CRV-MANUAL].
+- The AI monitor and any live-health model never receive target material for an unlocked session [product brief 5, 9].
+- Proven by automated test that walks every pre-lock payload for a seeded session and asserts the sealed bytes and title are absent.
+
+### F3. CRV session engine (state machine)
+
+- Sessions start at Stage I. The engine holds `current_stage` and refuses events whose kind is not legal in the current stage [CRV-MANUAL].
+- Stage I accepts ideogram, ideogram A, ideogram B. Stage II opens only after a complete ideogram/A/B trio exists. Stage III and later open only after the prior stage recorded at least one substantive event and an explicit `stage_advance` [CRV-MANUAL].
+- AOL declarations and breaks are legal in every stage. After an `aol` event, further signal events are refused until the matching `aol_break` is objectified [CRV-MANUAL].
+- Lock is explicit, irreversible, and required before feedback or analysis [PROTOCOLS.md].
+- ERV, ARV, and WRV sessions skip stage gating but keep blindness, lock, transcript, and timestamps [CIA-BRIEF].
+- Proven by automated tests for stage gating (Stage II refuses sensory before Stage I ideogram exists) and AOL gating.
+
+### F4. Multimodal transcript
+
+- Every viewer entry, sketch stroke set, monitor prompt, break, and lifecycle transition is one typed, timestamped, append-only `transcript_event` [AIR-1995] [CRV-MANUAL].
+- Ink syncs live over WebSocket so a human monitor (or the operator) can watch the paper in real time [product brief 3].
+
+### F5. Monitor (AI) within the manual's envelope
+
+- Prescribed patter only. Give the cue, acknowledge objectification, call structure violations, prompt AOL breaks when the viewer's language turns analytic, coach ideogram re-cueing in Stage I [CRV-MANUAL].
+- Never leads, never names, never asks the viewer to interpret a sketch as an object [CRV-MANUAL] [product brief FORBIDDEN].
+- Blind. Receives the transcript so far and the stage, never the target [F2].
+- Fails closed. Without `GOOGLE_API_KEY` the monitor stays silent and the session loop runs unaffected [product brief VERIFY].
+- Every monitor utterance is a `monitor_prompt` event and can carry a `flagged_leading` mark for review [CRV-MANUAL].
+
+### F6. Live session health
+
+- AOL rate, break count, stage dwell, and leading-flag count computed from the transcript and shown in the chamber's instrument chrome without exposing content that would break blindness [product brief 5, 9] [UTTS-1995].
+
+### F7. Lock, feedback, latency
+
+- Lock stamps `locked_at`. Feedback view unseals the target, stamps `feedback_at`, and materializes `feedback_latency_ms` [TART-TTI].
+- Feedback shows the sealed payload plus its hash so the operator can verify the seal [PAT-REPORT].
+
+### F8. Judging workflow
+
+- After lock, a judging screen presents the transcript beside pool members in shuffled order. Cards do not mark which member is true. The judge ranks every pool member. Rank of the true target and pool size persist [UTTS-1995].
+- ARV judging is binary. The pool is the two sealed associates, unmarked. A first-place rank of the true side is a hit (chance 1/2).
+- For series members, the same machinery scores lags -2 to +2 into `displacement_scores`. A series runner seals N sequential taskings in one cut so TTI has a recorded target sequence [TART-TTI].
+- LLM analyst produces an advisory report after lock, against the sealed target only, never against a generated "target model" image. Citation for product brief item 9 is open until the operator supplies the brief.
+
+### F9. Population statistics
+
+- Home console shows first-place rate versus 1/pool-size chance, mean rank, May figure of merit, session counts by protocol and environment, AOL rates, mean feedback latency, displacement summaries, and a per-viewer roster [UTTS-1995] [TART-TTI] [MAY-FOM].
+
+### F10. Migration and storage
+
+- SQLModel schema, SQLite by default (`sqlite+aiosqlite`), Postgres via `DATABASE_URL` [product brief 7, 8].
+- Startup migration runner with a `schema_migrations` version table. Legacy `session` rows migrate into the new model without loss [METRICS.md].
+
+## Experience requirements
+
+### X1. Brand
+
+Cream session surface (`#fffadc`) with blue chrome (`#065b84`), a single cyan signal accent for live state, precise typography (monospaced numerals for coordinates and tasking numbers), and restrained motion. Quiet and uncluttered. Reject dark phosphor themes, neon instrument walls, and ops-console clutter. Citation for product brief item 6 is open until the operator supplies the brief. The cream and blue brand is the operator decision that replaces that brief for visual language.
+
+### X2. The chamber
+
+Entering a session should read as entering a viewing chamber. Cream paper objectification surface under a dark glass header chrome, since paper is the historically correct working material [CRV-MANUAL]. Stage rail shows I through VI with locked stages visibly gated. The cue is presented the way a monitor would give it, alone on the paper. Dual-role freeform chat is not the chamber.
+
+### X3. Core loop
+
+Tasking, then chamber, then structured session, then lock, then feedback, then judgment. Each step one quiet surface. Citation for product brief item 6 is open. The loop shape stands without it.
+
+### F11. Associative remote viewing
+
+- An `arv_pairs` row binds two sealed associates. Cutting an ARV tasking seals one side as the future feedback photograph. The viewer receives only the opaque cue [CIA-BRIEF].
+- Chamber vocabulary is free-form (same envelope as ERV). Opening monitor patter names the feedback photograph, never a Stage I ideogram.
+- After lock the judge ranks the two associates. Labels stay off the pre-lock wire and off the judging cards.
+
+### F12. Written remote viewing
+
+- WRV is a runnable protocol. Written and phonetic objectification (`viewer_note`) is first-class. Same blindness, lock, and transcript rules as ERV [CIA-BRIEF].
+- The chamber defaults to a written pad. Ideograms are refused.
+
+### F14. Vault and research packages
+
+- Operators seal image and coordinate-site targets into pools from the vault. Only a SHA-256 receipt leaves the server. Descriptor memberships stay off the receipt [PAT-REPORT] [F1] [MAY-FOM].
+- After lock, a session or series can be exported as one unedited JSON package (transcript, judgment, FoM, target, seal hash, audit). Active sessions cannot be exported [PAT-REPORT].
+
+### F13. Viewers and figure of merit
+
+- A `viewers` row is the population unit. Sessions bind a viewer. The ops roster shows sessions, first-place rate, and mean FoM per source [UTTS-1995].
+- Operators encode sealed targets against a shared descriptor vocabulary at vault time. After lock the judge encodes the transcript against the same list, without seeing the target memberships [MAY-FOM].
+- When both encodings have mass, official accuracy is `|T ∩ R| / |T|`, official reliability is `|T ∩ R| / |R|`, and figure of merit is the product. That is May's published method. Rank-order remains the official hit statistic [UTTS-1995].
+- When either encoding is empty, the stored composite falls back to graded rank × process reliability so older sessions still have a number. `fom_method` records which definition was used.
+
+### F15. Closed lab
+
+- When `LAB_KEY` is set, mutating ops (tasking, vault, start session, judging, export) require the `X-Lab-Key` header or a valid operator token. Chamber writes on an existing session stay open so a viewer does not hold the key.
+- When the key is empty and no operator has a passphrase the lab stays open, which is the default for local work and tests.
+
+### F16. Operators and human-monitor pairing
+
+- An `operators` row is named lab staff. A session can bind an operator and a human monitor [CRV-MANUAL].
+- Environment `monitored_human` opens a monitor desk at `/monitor/{sessionId}`. The desk sees live paper, prescribed patter, and lock. It never unseals the target. Feedback and judging stay on the ops chamber.
+- Human patter is refused if it names or fishes for content. The same leading filter the AI monitor uses.
+
+### F17. Operator accounts
+
+- An operator can set a passphrase. The server stores a PBKDF2 hash, never the secret.
+- Once any operator has a hash, mutating ops require `X-Operator-Token` or `X-Lab-Key`. Creating the first keyed operator stays open so the desk can close itself.
+- `POST /api/auth/operator` issues a session token. Only the SHA-256 of the token is stored. `GET /api/auth/me` returns the signed-in callsign.
+- The roster exposes `locked`, never the hash or a live token.
+
+## Out of scope for this slice
+
+Outbound-beacon targets.
